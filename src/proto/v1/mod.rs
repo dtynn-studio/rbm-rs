@@ -36,9 +36,21 @@ where
     pub receiver: u8,
     pub seq_id: u16,
 
-    need_ack: DussMBAck,
-
     proto: P,
+}
+
+impl<P> V1Msg<P>
+where
+    P: V1Proto + Command,
+{
+    #[inline]
+    fn need_ack(&self) -> DussMBAck {
+        if <P as V1Proto>::CMD_TYPE == DussMBType::Push {
+            DussMBAck::No
+        } else {
+            DussMBAck::Finish
+        }
+    }
 }
 
 impl<P> Msg for V1Msg<P>
@@ -56,7 +68,7 @@ where
         V1MsgCtx {
             sender: self.sender,
             receiver: self.receiver,
-            need_ack: self.need_ack,
+            need_ack: self.need_ack(),
             is_ack: false,
         }
     }
@@ -68,7 +80,7 @@ impl<P> Codec<V1Msg<P>> for V1
 where
     P: V1Proto + Command,
 {
-    fn pack_msg(msg: V1Msg<P>) -> Result<Vec<u8>> {
+    fn pack_msg(msg: V1Msg<P>, ack: Option<DussMBAck>) -> Result<Vec<u8>> {
         let size = MSG_HEADER_SIZE + P::SIZE;
         let mut buf = vec![0u8; size];
         buf[0] = MSG_MAGIN_NUM;
@@ -83,7 +95,7 @@ where
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
-        buf[8] = (msg.need_ack as u8) << 5;
+        buf[8] = (ack.unwrap_or_else(|| msg.need_ack()) as u8) << 5;
 
         // encode proto
         buf[9] = P::IDENT.0;

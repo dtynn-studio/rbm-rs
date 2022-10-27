@@ -57,7 +57,7 @@ pub trait Msg {
 }
 
 pub trait Codec<M: Msg> {
-    fn pack_msg(msg: M) -> Result<Vec<u8>>;
+    fn pack_msg(msg: M, ack: Option<DussMBAck>) -> Result<Vec<u8>>;
     #[allow(clippy::type_complexity)]
     fn unpack_raw(buf: &[u8]) -> Result<(<M as Msg>::Ident, <M as Msg>::Ctx, &[u8], usize)>;
 }
