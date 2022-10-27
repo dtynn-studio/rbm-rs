@@ -6,6 +6,7 @@ use crate::{
     ensure_buf_size, Error, Result,
 };
 
+pub mod ctrl;
 pub mod normal;
 
 const MSG_HEADER_SIZE: usize = 13;
