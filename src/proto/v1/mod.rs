@@ -6,12 +6,14 @@ use crate::{
     ensure_buf_size, Error, Result,
 };
 
+pub mod normal;
+
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
 
 pub trait V1Proto {
     const IDENT: V1ProtoIdent;
-    const TYP: DussMBType = DussMBType::Req;
+    const CMD_TYPE: DussMBType = DussMBType::Req;
 }
 
 pub type V1ProtoIdent = (u8, u8);
@@ -131,3 +133,30 @@ where
         ))
     }
 }
+
+macro_rules! impl_v1_cmd {
+    (cmd: $name:ident, $resp:ty) => {
+        impl $crate::proto::Command for $name {
+            type Response = $resp;
+        }
+    };
+
+    ($name:ident, $resp:ty, $cid:literal) => {
+        impl $crate::proto::v1::V1Proto for $name {
+            const IDENT: $crate::proto::v1::V1ProtoIdent = (CMD_SET, $cid);
+        }
+
+        impl_v1_cmd!(cmd: $name, $resp);
+    };
+
+    ($name:ident, $resp:ty, $cid:literal, $ctype:literal) => {
+        impl $crate::proto::v1::V1Proto for $name {
+            const IDENT: $crate::proto::v1::V1ProtoIdent = (CMD_SET, $cid);
+            const CMD_TYPE: $crate::proto::DussMBType = $ctype;
+        }
+
+        impl_v1_cmd!(cmd: $name, $resp);
+    };
+}
+
+pub(self) use impl_v1_cmd;

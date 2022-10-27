@@ -85,3 +85,28 @@ impl Deserialize for RetOK {
         Ok(RetOK)
     }
 }
+
+macro_rules! impl_empty_ser {
+    ($name:ty) => {
+        impl $crate::proto::Serialize for $name {
+            const SIZE: usize = 0;
+
+            fn ser(&self, _w: &mut impl std::io::Write) -> $crate::Result<()> {
+                Ok(())
+            }
+        }
+    };
+}
+
+macro_rules! impl_empty_de {
+    ($name:ty) => {
+        impl $crate::proto::Deserialize for $name {
+            fn de(_buf: &[u8]) -> $crate::Result<Self> {
+                Ok(Self::default())
+            }
+        }
+    };
+}
+
+pub(self) use impl_empty_de;
+pub(self) use impl_empty_ser;
