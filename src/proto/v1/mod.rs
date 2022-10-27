@@ -6,6 +6,7 @@ use crate::{
     ensure_buf_size, Error, Result,
 };
 
+pub mod camera;
 pub mod ctrl;
 pub mod normal;
 
