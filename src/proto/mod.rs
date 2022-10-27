@@ -1,6 +1,8 @@
 use std::io::Write;
 
-use crate::{Error, Result};
+use crate::{ensure_ok, Error, Result};
+
+mod v1;
 
 pub const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 pub const RM_SDK_LAST_SEQ_ID: u16 = 20000;
@@ -41,22 +43,23 @@ pub enum DussMBType {
     Push = 1,
 }
 
-pub enum ProtoType {
+pub enum CodecType {
     V1,
     Text,
 }
 
-pub trait Identified {
+pub trait Msg {
     type Ident;
+    type Ctx;
+
+    fn ident(&self) -> Self::Ident;
+    fn ctx(&self) -> Self::Ctx;
 }
 
-pub trait Codec {
-    type Msg: Identified;
-
-    fn pack_msg(msg: Self::Msg) -> Result<Vec<u8>>;
-    fn unpack_raw<'b>(
-        data: &'b [u8],
-    ) -> Result<(<Self::Msg as Identified>::Ident, &'b [u8], usize)>;
+pub trait Codec<M: Msg> {
+    fn pack_msg(msg: M) -> Result<Vec<u8>>;
+    #[allow(clippy::type_complexity)]
+    fn unpack_raw(buf: &[u8]) -> Result<(<M as Msg>::Ident, <M as Msg>::Ctx, &[u8], usize)>;
 }
 
 pub trait Command: std::fmt::Debug + Serialize {
@@ -71,4 +74,14 @@ pub trait Serialize {
 
 pub trait Deserialize: Sized {
     fn de(buf: &[u8]) -> Result<Self>;
+}
+
+#[derive(Debug)]
+pub struct RetOK;
+
+impl Deserialize for RetOK {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_ok!(buf);
+        Ok(RetOK)
+    }
 }
