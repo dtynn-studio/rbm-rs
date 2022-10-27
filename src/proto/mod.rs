@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::io::Write;
 
 use crate::{ensure_ok, Error, Result};
@@ -43,27 +44,49 @@ pub enum DussMBType {
     Push = 1,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum CodecType {
     V1,
     Text,
 }
 
-pub trait Msg {
-    type Ident;
-    type Ctx;
-
-    fn ident(&self) -> Self::Ident;
-    fn ctx(&self) -> Self::Ctx;
+pub enum CodecIdent {
+    V1(u8, u8),
+    Text,
 }
 
-pub trait Codec<M: Msg> {
-    fn pack_msg(msg: M, ack: Option<DussMBAck>) -> Result<Vec<u8>>;
+pub trait CodecCtx {
+    fn need_ack(&self) -> DussMBAck;
+    fn is_ask(&self) -> bool;
+}
+
+pub trait Codec {
+    type CmdIdent;
+    type MsgIdent: Eq + Hash;
+    type Ctx: CodecCtx;
+
+    fn ctx<M: Message<Ident = Self::CmdIdent>>(
+        sender: u8,
+        receiver: u8,
+        need_ack: Option<DussMBAck>,
+    ) -> Self::Ctx;
+
+    fn pack_msg<M: Message<Ident = Self::CmdIdent>>(
+        &self,
+        ctx: Self::Ctx,
+        msg: M,
+    ) -> Result<(Self::MsgIdent, Vec<u8>)>;
+
     #[allow(clippy::type_complexity)]
-    fn unpack_raw(buf: &[u8]) -> Result<(<M as Msg>::Ident, <M as Msg>::Ctx, &[u8], usize)>;
+    fn unpack_raw(buf: &[u8]) -> Result<(Self::MsgIdent, Self::Ctx, &[u8], usize)>;
 }
 
-pub trait Command: std::fmt::Debug + Serialize {
+pub trait Message: std::fmt::Debug + Serialize {
+    type Ident;
     type Response: std::fmt::Debug + Deserialize;
+
+    const IDENT: Self::Ident;
+    const CMD_TYPE: DussMBType = DussMBType::Req;
 }
 
 pub trait Serialize {

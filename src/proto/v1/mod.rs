@@ -1,6 +1,9 @@
 use std::io::Cursor;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::{Codec, Command, DussMBAck, DussMBType, Msg};
+use super::{
+    Codec, CodecCtx, DussMBAck, DussMBType, Message, RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_SEQ_ID,
+};
 use crate::{
     algo::{crc16_calc, crc8_calc},
     ensure_buf_size, Error, Result,
@@ -13,112 +16,105 @@ pub mod normal;
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
 
-pub trait V1Proto {
-    const IDENT: V1ProtoIdent;
-    const CMD_TYPE: DussMBType = DussMBType::Req;
-}
-
-pub type V1ProtoIdent = (u8, u8);
+pub type V1CmdIdent = (u8, u8);
 
 #[derive(Debug, Clone, Copy)]
-pub struct V1MsgCtx {
+pub struct V1Ctx {
     pub sender: u8,
     pub receiver: u8,
-    pub need_ack: DussMBAck,
-    pub is_ack: bool,
+    need_ack: DussMBAck,
+    is_ack_: bool,
 }
 
-pub struct V1Msg<P>
-where
-    P: V1Proto + Command,
-{
-    pub sender: u8,
-    pub receiver: u8,
-    pub seq_id: u16,
-
-    proto: P,
-}
-
-impl<P> V1Msg<P>
-where
-    P: V1Proto + Command,
-{
-    #[inline]
+impl CodecCtx for V1Ctx {
     fn need_ack(&self) -> DussMBAck {
-        if <P as V1Proto>::CMD_TYPE == DussMBType::Push {
-            DussMBAck::No
-        } else {
-            DussMBAck::Finish
-        }
+        self.need_ack
+    }
+
+    fn is_ask(&self) -> bool {
+        self.is_ack_
     }
 }
 
-impl<P> Msg for V1Msg<P>
-where
-    P: V1Proto + Command,
-{
-    type Ident = (V1ProtoIdent, u16);
-    type Ctx = V1MsgCtx;
+pub struct V1(AtomicU64);
 
-    fn ident(&self) -> Self::Ident {
-        (P::IDENT, self.seq_id)
-    }
-
-    fn ctx(&self) -> Self::Ctx {
-        V1MsgCtx {
-            sender: self.sender,
-            receiver: self.receiver,
-            need_ack: self.need_ack(),
-            is_ack: false,
-        }
+impl Default for V1 {
+    fn default() -> Self {
+        V1(AtomicU64::new(0))
     }
 }
 
-pub struct V1;
+const SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
 
-impl<P> Codec<V1Msg<P>> for V1
-where
-    P: V1Proto + Command,
-{
-    fn pack_msg(msg: V1Msg<P>, ack: Option<DussMBAck>) -> Result<Vec<u8>> {
-        let size = MSG_HEADER_SIZE + P::SIZE;
+impl Codec for V1 {
+    type CmdIdent = V1CmdIdent;
+    type MsgIdent = (V1CmdIdent, u16);
+    type Ctx = V1Ctx;
+
+    fn ctx<M: Message<Ident = Self::CmdIdent>>(
+        sender: u8,
+        receiver: u8,
+        need_ack: Option<DussMBAck>,
+    ) -> Self::Ctx {
+        V1Ctx {
+            sender,
+            receiver,
+            need_ack: need_ack.unwrap_or_else(|| {
+                if M::CMD_TYPE == DussMBType::Push {
+                    DussMBAck::No
+                } else {
+                    DussMBAck::Finish
+                }
+            }),
+            is_ack_: false,
+        }
+    }
+
+    fn pack_msg<M: Message<Ident = Self::CmdIdent>>(
+        &self,
+        ctx: Self::Ctx,
+        msg: M,
+    ) -> Result<(Self::MsgIdent, Vec<u8>)> {
+        let next = self.0.fetch_add(1, Ordering::Relaxed);
+        let seq_abs = match next % SEQ_MOD {
+            0 => RM_SDK_LAST_SEQ_ID,
+            other => other as u16,
+        };
+        let seq = RM_SDK_FIRST_SEQ_ID + seq_abs;
+
+        let id = (M::IDENT, seq);
+
+        let size = MSG_HEADER_SIZE + M::SIZE;
         let mut buf = vec![0u8; size];
         buf[0] = MSG_MAGIN_NUM;
         buf[1] = (size & 0xff) as u8;
         buf[2] = ((size >> 8) & 0x3 | 4) as u8;
         // crc header
         buf[3] = crc8_calc(&buf[0..3], None);
-        buf[4] = msg.sender;
-        buf[5] = msg.receiver;
-        buf[6] = (msg.seq_id & 0xff) as u8;
-        buf[7] = ((msg.seq_id >> 8) & 0xff) as u8;
+        buf[4] = ctx.sender;
+        buf[5] = ctx.receiver;
+        buf[6] = (id.1 & 0xff) as u8;
+        buf[7] = ((id.1 >> 8) & 0xff) as u8;
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
-        buf[8] = (ack.unwrap_or_else(|| msg.need_ack()) as u8) << 5;
+        buf[8] = (ctx.need_ack as u8) << 5;
 
         // encode proto
-        buf[9] = P::IDENT.0;
-        buf[10] = P::IDENT.1;
+        buf[9] = id.0 .0;
+        buf[10] = id.0 .1;
 
         let mut writer = Cursor::new(&mut buf[11..size - 2]);
-        msg.proto.ser(&mut writer)?;
+        msg.ser(&mut writer)?;
 
         // crc msg
         let crc_msg = crc16_calc(&buf[..size - 2], None).to_le_bytes();
         buf[size - 2] = crc_msg[0];
         buf[size - 1] = crc_msg[1];
-        Ok(buf)
+        Ok((id, buf))
     }
 
-    fn unpack_raw(
-        buf: &[u8],
-    ) -> Result<(
-        <V1Msg<P> as Msg>::Ident,
-        <V1Msg<P> as Msg>::Ctx,
-        &[u8],
-        usize,
-    )> {
+    fn unpack_raw(buf: &[u8]) -> Result<(Self::MsgIdent, Self::Ctx, &[u8], usize)> {
         ensure_buf_size!(buf, MSG_HEADER_SIZE, "raw msg header");
         if buf[0] != MSG_MAGIN_NUM {
             return Err(Error::InvalidData("invalid magic number".into()));
@@ -136,10 +132,10 @@ where
 
         Ok((
             ((buf[9], buf[10]), ((buf[7] as u16) << 8) | buf[6] as u16),
-            V1MsgCtx {
+            V1Ctx {
                 sender: buf[4],
                 receiver: buf[5],
-                is_ack: buf[8] & 0x80 != 0,
+                is_ack_: buf[8] & 0x80 != 0,
                 need_ack,
             },
             &buf[11..size - 2],
@@ -149,27 +145,23 @@ where
 }
 
 macro_rules! impl_v1_cmd {
-    (cmd: $name:ident, $resp:ty) => {
-        impl $crate::proto::Command for $name {
-            type Response = $resp;
-        }
-    };
-
     ($name:ident, $resp:ty, $cid:literal) => {
-        impl $crate::proto::v1::V1Proto for $name {
-            const IDENT: $crate::proto::v1::V1ProtoIdent = (CMD_SET, $cid);
-        }
+        impl $crate::proto::Message for $name {
+            type Ident = $crate::proto::v1::V1CmdIdent;
+            type Response = $resp;
 
-        impl_v1_cmd!(cmd: $name, $resp);
+            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
+        }
     };
 
     ($name:ident, $resp:ty, $cid:literal, $ctype:literal) => {
-        impl $crate::proto::v1::V1Proto for $name {
-            const IDENT: $crate::proto::v1::V1ProtoIdent = (CMD_SET, $cid);
+        impl $crate::proto::Command for $name {
+            type Ident = $crate::proto::v1::V1CmdIdent;
+            type Response = $resp;
+
+            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
             const CMD_TYPE: $crate::proto::DussMBType = $ctype;
         }
-
-        impl_v1_cmd!(cmd: $name, $resp);
     };
 }
 

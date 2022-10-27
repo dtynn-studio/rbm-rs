@@ -1,12 +1,15 @@
 use super::transport::Transport;
 use crate::{
-    proto::{Codec, Msg},
+    proto::{Codec, Message},
     Result,
 };
 
-pub struct Client<T>
+pub trait Client<T, C, M>
 where
     T: Transport,
+    C: Codec,
+    M: Message<Ident = C::CmdIdent>,
 {
-    tran: T,
+    fn request(&self, m: M) -> Result<Option<M::Response>>;
+    fn send(&self, m: M) -> Result<()>;
 }
