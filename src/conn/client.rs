@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crossbeam_channel::{bounded, select, unbounded, Receiver, Sender};
+use tracing::debug;
 
 use super::transport::Transport;
 use crate::{
@@ -21,7 +22,8 @@ where
     target: u8,
     msg_tx: Sender<(C::MsgIdent, Vec<u8>, Option<Sender<Vec<u8>>>)>,
     codec: Arc<C>,
-    _done_tx: Sender<()>,
+    done_tx: Option<Sender<()>>,
+    join: Option<thread::JoinHandle<()>>,
 }
 
 impl<C> Client<C>
@@ -33,14 +35,20 @@ where
         dest: SocketAddr,
         host: u8,
         target: u8,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        T: Transport,
+    {
+        debug!(?bind, ?dest, "connecting");
+
         let sender_trans = T::connect(bind, dest)?;
         let recv_trans = sender_trans.try_clone()?;
+
         let codec = Arc::new(C::default());
         let (msg_tx, msg_rx) = unbounded();
         let (done_tx, done_rx) = bounded(0);
 
-        thread::spawn(move || {
+        let join = thread::spawn(move || {
             start_client_inner::<T, C>(sender_trans, recv_trans, msg_rx, done_rx);
         });
 
@@ -49,7 +57,8 @@ where
             target,
             msg_tx,
             codec,
-            _done_tx: done_tx,
+            done_tx: Some(done_tx),
+            join: Some(join),
         })
     }
 
@@ -86,6 +95,19 @@ where
     }
 }
 
+impl<C> Drop for Client<C>
+where
+    C: Codec,
+{
+    fn drop(&mut self) {
+        drop(self.done_tx.take());
+        if let Some(join) = self.join.take() {
+            debug!("wait for dispatch threads to be stopped");
+            let _ = join.join();
+        };
+    }
+}
+
 fn start_client_inner<T, C>(
     mut sender_trans: T,
     mut recv_trans: T,
@@ -100,6 +122,7 @@ fn start_client_inner<T, C>(
 
     thread::scope(|s| {
         s.spawn(|| {
+            debug!("client dispatch loop start");
             if let Err(_e) = start_client_dispatch::<T, C>(
                 done,
                 &mut sender_trans,
@@ -109,13 +132,17 @@ fn start_client_inner<T, C>(
             ) {
                 // TODO: logging
             }
+            sender_trans.shutdown();
+            debug!("client dispatch loop stop");
         });
 
         // transport recv thread
         s.spawn(|| {
+            debug!("client recv loop start");
             if let Err(_e) = start_client_recv::<T, C>(recv_done_tx, &mut recv_trans, recv_raw_tx) {
                 // TODO: logging
             }
+            debug!("client recv loop stop");
         });
     });
 }
@@ -132,10 +159,12 @@ where
     C: Codec,
 {
     let mut pending = HashMap::new();
+    let mut sent = 0;
+    let mut recv = 0;
     loop {
+        debug!(sent, recv, "waiting for client events");
         select! {
             recv(done) -> _ => {
-                trans.shutdown();
                 return Ok(());
             }
 
@@ -146,9 +175,12 @@ where
             recv(msg_rx) -> msg_res => {
                 let (msg_id, data, maybe_resp) = msg_res.map_err(|_| Error::Other("msg chan broken".into()))?;
                 trans.send(&data[..])?;
+                debug!(?msg_id, size = data.len(), pending = maybe_resp.is_some(), "data sent");
                 if let Some(resp_tx) = maybe_resp {
                     pending.insert(msg_id, resp_tx);
                 }
+
+                sent += 1;
             }
 
             recv(raw_tx) -> raw_res => {
@@ -158,6 +190,8 @@ where
                         // TODO: logging
                     }
                 }
+
+                recv += 1;
 
                 // TODO: dispatch subsribed events
             }
@@ -177,10 +211,21 @@ where
     let _done = loop_done;
     let mut buf = [0u8; 2048];
     loop {
+        debug!("waiting for incoming msg");
         let read = recv_trans.recv(&mut buf[..])?;
+        if read == 0 {
+            return Ok(());
+        }
 
         match C::unpack_raw(&buf[..read]) {
-            Ok((msg_id, recv_ctx, data, _consumed)) => {
+            Ok((msg_id, recv_ctx, data, consumed)) => {
+                debug!(
+                    ?msg_id,
+                    ?recv_ctx,
+                    consumed,
+                    size = data.len(),
+                    "raw msg unpacked"
+                );
                 raw_tx
                     .send((msg_id, recv_ctx, data.into()))
                     .map_err(|_e| Error::Other("raw chan broken".into()))?;

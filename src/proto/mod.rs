@@ -3,7 +3,10 @@ use std::io::Write;
 
 use crate::{ensure_ok, Error, Result};
 
-mod v1;
+mod util;
+pub mod v1;
+
+pub use util::{byte2host, host2byte};
 
 pub const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 pub const RM_SDK_LAST_SEQ_ID: u16 = 20000;
@@ -62,8 +65,8 @@ pub trait CodecCtx {
 
 pub trait Codec: Default + Send + Sync {
     type CmdIdent;
-    type MsgIdent: Eq + Hash + Send;
-    type Ctx: CodecCtx + Send;
+    type MsgIdent: Eq + Hash + Send + std::fmt::Debug;
+    type Ctx: CodecCtx + Send + std::fmt::Debug;
 
     fn ctx<M: Message<Ident = Self::CmdIdent>>(
         sender: u8,

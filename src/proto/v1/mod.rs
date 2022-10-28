@@ -76,11 +76,7 @@ impl Codec for V1 {
         msg: M,
     ) -> Result<(Self::MsgIdent, Vec<u8>)> {
         let next = self.0.fetch_add(1, Ordering::Relaxed);
-        let seq_abs = match next % SEQ_MOD {
-            0 => RM_SDK_LAST_SEQ_ID,
-            other => other as u16,
-        };
-        let seq = RM_SDK_FIRST_SEQ_ID + seq_abs;
+        let seq = RM_SDK_FIRST_SEQ_ID + (next % SEQ_MOD) as u16 + 1;
 
         let id = (M::IDENT, seq);
 

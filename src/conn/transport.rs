@@ -1,5 +1,6 @@
 use std::io::{Error, ErrorKind, Read, Result, Write};
 use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpStream, UdpSocket};
+use std::sync::Arc;
 
 use net2::TcpBuilder;
 
@@ -18,11 +19,7 @@ pub struct Tcp {
 
 impl Transport for Tcp {
     fn connect(bind: Option<SocketAddr>, dest: SocketAddr) -> Result<Self> {
-        let builder = if dest.is_ipv4() {
-            TcpBuilder::new_v4()
-        } else {
-            TcpBuilder::new_v6()
-        }?;
+        let builder = TcpBuilder::new_v4()?;
 
         if let Some(bind) = bind {
             builder.bind(bind)?;
@@ -52,46 +49,67 @@ impl Transport for Tcp {
 }
 
 pub struct Udp {
-    inner: Option<UdpSocket>,
+    inner: Option<Arc<UdpSocket>>,
+    local: SocketAddr,
+    dest: SocketAddr,
 }
 
 impl Transport for Udp {
     fn connect(bind: Option<SocketAddr>, dest: SocketAddr) -> Result<Self> {
-        let socket = UdpSocket::bind(
-            bind.unwrap_or_else(|| SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0)),
-        )?;
+        let socket = if let Some(bind) = bind {
+            UdpSocket::bind(bind)?
+        } else {
+            UdpSocket::bind(SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0))?
+        };
 
-        socket.connect(dest)?;
+        let local = socket.local_addr()?;
 
         Ok(Udp {
-            inner: Some(socket),
+            inner: Some(Arc::new(socket)),
+            local,
+            dest,
         })
     }
 
     fn send(&mut self, data: &[u8]) -> Result<()> {
         match self.inner.as_ref() {
-            Some(inner) => inner.send(data).map(|_| ()),
+            Some(inner) => inner.send_to(data, self.dest).map(|_| ()),
             None => Err(Error::new(ErrorKind::NotConnected, "socket dropped")),
         }
     }
 
     fn recv(&mut self, buf: &mut [u8]) -> Result<usize> {
         match self.inner.as_ref() {
-            Some(inner) => inner.recv(buf),
+            Some(inner) => inner
+                .recv_from(buf)
+                .map(|(read, from)| if from == self.local { 0 } else { read })
+                .or_else(|e| {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        return Ok(0);
+                    }
+
+                    Err(e)
+                }),
             None => Err(Error::new(ErrorKind::NotConnected, "socket dropped")),
         }
     }
 
     fn try_clone(&self) -> Result<Self> {
         match self.inner.as_ref() {
-            Some(inner) => inner.try_clone().map(|socket| Udp {
-                inner: Some(socket),
+            Some(inner) => Ok(Udp {
+                inner: Some(inner.clone()),
+                local: self.local,
+                dest: self.dest,
             }),
             None => Err(Error::new(ErrorKind::NotConnected, "socket dropped")),
         }
     }
 
     fn shutdown(&mut self) {
-        self.inner.take();
+        if let Some(inner) = self.inner.take() {
+            // some tricks to trigger exit on recv side;
+            let _ = inner.send_to(&[0xff], self.local);
+            let _ = inner.set_nonblocking(true);
+        }
     }
 }
