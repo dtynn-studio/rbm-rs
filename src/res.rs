@@ -15,6 +15,7 @@ pub enum Error {
         msg: Option<Cow<'static, str>>,
     },
     InvalidData(Cow<'static, str>),
+    Other(Cow<'static, str>),
 }
 
 impl From<std::io::Error> for Error {

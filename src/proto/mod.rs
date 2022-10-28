@@ -60,10 +60,10 @@ pub trait CodecCtx {
     fn is_ask(&self) -> bool;
 }
 
-pub trait Codec {
+pub trait Codec: Default + Send + Sync {
     type CmdIdent;
-    type MsgIdent: Eq + Hash;
-    type Ctx: CodecCtx;
+    type MsgIdent: Eq + Hash + Send;
+    type Ctx: CodecCtx + Send;
 
     fn ctx<M: Message<Ident = Self::CmdIdent>>(
         sender: u8,

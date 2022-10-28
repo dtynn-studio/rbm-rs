@@ -1,6 +1,9 @@
 mod client;
 mod transport;
 
+pub use client::Client;
+pub use transport::{Tcp, Transport, Udp};
+
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum NetworkType {
