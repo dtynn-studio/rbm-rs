@@ -60,11 +60,11 @@ pub fn crc16_calc(data: &[u8], base: Option<u16>) -> u16 {
     crc
 }
 
-pub fn simple_encrypt(data: &mut [u8]) {
-    let mut key = 0x07u32;
-    for v in data.iter_mut() {
-        let r = ((*v as u32 ^ key) & 0xff) as u8;
-        *v ^= r;
-        key = (key + 7) ^ 178;
-    }
-}
+// pub fn simple_encrypt(data: &mut [u8]) {
+//     let mut key = 0x07u32;
+//     for v in data.iter_mut() {
+//         let r = ((*v as u32 ^ key) & 0xff) as u8;
+//         *v ^= r;
+//         key = (key + 7) ^ 178;
+//     }
+// }

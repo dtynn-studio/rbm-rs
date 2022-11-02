@@ -92,6 +92,12 @@ pub trait Message: std::fmt::Debug + Serialize {
     const CMD_TYPE: DussMBType = DussMBType::Req;
 }
 
+pub trait Event: std::fmt::Debug + Deserialize {
+    type Ident;
+
+    const IDENT: Self::Ident;
+}
+
 pub trait Serialize {
     const SIZE: usize;
 
@@ -100,16 +106,6 @@ pub trait Serialize {
 
 pub trait Deserialize: Sized {
     fn de(buf: &[u8]) -> Result<Self>;
-}
-
-#[derive(Debug)]
-pub struct RetOK;
-
-impl Deserialize for RetOK {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_ok!(buf);
-        Ok(RetOK)
-    }
 }
 
 macro_rules! impl_empty_ser {
@@ -136,3 +132,15 @@ macro_rules! impl_empty_de {
 
 pub(self) use impl_empty_de;
 pub(self) use impl_empty_ser;
+
+#[derive(Debug)]
+pub struct RetOK;
+
+impl Deserialize for RetOK {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_ok!(buf);
+        Ok(RetOK)
+    }
+}
+
+impl_empty_de!(());

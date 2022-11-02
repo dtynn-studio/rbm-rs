@@ -150,8 +150,8 @@ macro_rules! impl_v1_cmd {
         }
     };
 
-    ($name:ident, $resp:ty, $cid:literal, $ctype:literal) => {
-        impl $crate::proto::Command for $name {
+    ($name:ident, $resp:ty, $cid:literal, $ctype:expr) => {
+        impl $crate::proto::Message for $name {
             type Ident = $crate::proto::v1::V1CmdIdent;
             type Response = $resp;
 
@@ -161,4 +161,15 @@ macro_rules! impl_v1_cmd {
     };
 }
 
+macro_rules! impl_v1_event {
+    ($name:ident, $cid:literal) => {
+        impl $crate::proto::Event for $name {
+            type Ident = $crate::proto::v1::V1CmdIdent;
+
+            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
+        }
+    };
+}
+
 pub(self) use impl_v1_cmd;
+pub(self) use impl_v1_event;
