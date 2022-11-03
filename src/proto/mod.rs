@@ -1,5 +1,5 @@
-use std::hash::Hash;
 use std::io::Write;
+use std::{borrow::Cow, hash::Hash};
 
 use crate::{ensure_ok, Error, Result};
 
@@ -63,9 +63,10 @@ pub trait CodecCtx {
     fn is_ask(&self) -> bool;
 }
 
+#[allow(clippy::type_complexity)]
 pub trait Codec: Default + Send + Sync {
-    type CmdIdent;
-    type MsgIdent: Eq + Hash + Send + std::fmt::Debug;
+    type CmdIdent: Eq + Hash + Send + std::fmt::Debug;
+    type Seq: Eq + Hash + Send + std::fmt::Debug;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
 
     fn ctx<M: Message<Ident = Self::CmdIdent>>(
@@ -78,10 +79,10 @@ pub trait Codec: Default + Send + Sync {
         &self,
         ctx: Self::Ctx,
         msg: M,
-    ) -> Result<(Self::MsgIdent, Vec<u8>)>;
+    ) -> Result<((Self::CmdIdent, Self::Seq), Vec<u8>)>;
 
     #[allow(clippy::type_complexity)]
-    fn unpack_raw(buf: &[u8]) -> Result<(Self::MsgIdent, Self::Ctx, &[u8], usize)>;
+    fn unpack_raw(buf: &[u8]) -> Result<((Self::CmdIdent, Self::Seq), Self::Ctx, &[u8], usize)>;
 }
 
 pub trait Message: std::fmt::Debug + Serialize {
@@ -96,6 +97,42 @@ pub trait Event: std::fmt::Debug + Deserialize {
     type Ident;
 
     const IDENT: Self::Ident;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ActionState {
+    Idle,
+    Running,
+    Succeeded,
+    Failed,
+    Started,
+    Aborting,
+    Aborted,
+    Rejected,
+    Exception,
+}
+
+impl ActionState {
+    pub fn is_running(&self) -> bool {
+        *self == ActionState::Started || *self == ActionState::Running
+    }
+}
+
+pub trait Action {
+    type Message: Message;
+    type Event: Event;
+
+    fn update(&mut self, event: Self::Event) -> Result<()>;
+
+    fn state(&self) -> ActionState;
+
+    fn percent(&self) -> f64;
+
+    fn failure_reason(&self) -> Option<Cow<'static, str>>;
+
+    fn apply_state(&mut self, state: ActionState) -> Result<()>;
+
+    fn apply_event(&mut self, event: Self::Event) -> Result<()>;
 }
 
 pub trait Serialize {

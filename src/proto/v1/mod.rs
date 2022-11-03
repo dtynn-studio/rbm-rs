@@ -48,7 +48,7 @@ const SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
 
 impl Codec for V1 {
     type CmdIdent = V1CmdIdent;
-    type MsgIdent = (V1CmdIdent, u16);
+    type Seq = u16;
     type Ctx = V1Ctx;
 
     fn ctx<M: Message<Ident = Self::CmdIdent>>(
@@ -74,7 +74,7 @@ impl Codec for V1 {
         &self,
         ctx: Self::Ctx,
         msg: M,
-    ) -> Result<(Self::MsgIdent, Vec<u8>)> {
+    ) -> Result<((Self::CmdIdent, Self::Seq), Vec<u8>)> {
         let next = self.0.fetch_add(1, Ordering::Relaxed);
         let seq = RM_SDK_FIRST_SEQ_ID + (next % SEQ_MOD) as u16 + 1;
 
@@ -110,7 +110,7 @@ impl Codec for V1 {
         Ok((id, buf))
     }
 
-    fn unpack_raw(buf: &[u8]) -> Result<(Self::MsgIdent, Self::Ctx, &[u8], usize)> {
+    fn unpack_raw(buf: &[u8]) -> Result<((Self::CmdIdent, Self::Seq), Self::Ctx, &[u8], usize)> {
         ensure_buf_size!(buf, MSG_HEADER_SIZE, "raw msg header");
         if buf[0] != MSG_MAGIN_NUM {
             return Err(Error::InvalidData("invalid magic number".into()));

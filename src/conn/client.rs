@@ -20,7 +20,7 @@ where
 {
     host: u8,
     target: u8,
-    msg_tx: Sender<(C::MsgIdent, Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    msg_tx: Sender<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
     codec: Arc<C>,
     done_tx: Option<Sender<()>>,
     join: Option<thread::JoinHandle<()>>,
@@ -111,7 +111,7 @@ where
 fn start_client_inner<T, C>(
     mut sender_trans: T,
     mut recv_trans: T,
-    msg_rx: Receiver<(C::MsgIdent, Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    msg_rx: Receiver<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
     done: Receiver<()>,
 ) where
     T: Transport,
@@ -150,8 +150,8 @@ fn start_client_inner<T, C>(
 fn start_client_dispatch<T, C>(
     done: Receiver<()>,
     trans: &mut T,
-    msg_rx: Receiver<(C::MsgIdent, Vec<u8>, Option<Sender<Vec<u8>>>)>,
-    raw_tx: Receiver<(C::MsgIdent, C::Ctx, Vec<u8>)>,
+    msg_rx: Receiver<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    raw_tx: Receiver<((C::CmdIdent, C::Seq), C::Ctx, Vec<u8>)>,
     recv_loop_done: Receiver<()>,
 ) -> Result<()>
 where
@@ -202,7 +202,7 @@ where
 fn start_client_recv<T, C>(
     loop_done: Sender<()>,
     recv_trans: &mut T,
-    raw_tx: Sender<(C::MsgIdent, C::Ctx, Vec<u8>)>,
+    raw_tx: Sender<((C::CmdIdent, C::Seq), C::Ctx, Vec<u8>)>,
 ) -> Result<()>
 where
     T: Transport,
