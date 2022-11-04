@@ -53,7 +53,7 @@ impl Serialize for SetZoom {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         let mut buf = [0u8; Self::SIZE];
-        let enable_bit = if self.enable { 1 } else { 0 };
+        let enable_bit: u8 = self.enable.into();
         buf[0] = enable_bit << 3 | self.typ;
         // this is just impossible
         // buf[4..].copy_from_slice(&self.value.to_le_bytes());
@@ -72,7 +72,7 @@ impl_empty_ser!(GetZoom);
 impl_v1_cmd!(SetWhiteBalance, RetOK, 0x2c);
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum WhiteBalanceType {
     Auto = 0,
     Manual = 6,

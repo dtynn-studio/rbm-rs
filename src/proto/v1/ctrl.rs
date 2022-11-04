@@ -107,8 +107,7 @@ impl Serialize for SetSdkMode {
     const SIZE: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_all(&[if self.0 { 1 } else { 0 }])
-            .map_err(From::from)
+        w.write_all(&[self.0.into()]).map_err(From::from)
     }
 }
 
