@@ -11,7 +11,11 @@ use crate::{
 
 pub mod camera;
 pub mod ctrl;
+pub mod gimbal;
+pub mod gripper;
 pub mod normal;
+pub mod subscribe;
+pub mod vision;
 
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
@@ -80,7 +84,7 @@ impl Codec for V1 {
 
         let id = (M::IDENT, seq);
 
-        let size = MSG_HEADER_SIZE + M::SIZE;
+        let size = MSG_HEADER_SIZE + msg.size();
         let mut buf = vec![0u8; size];
         buf[0] = MSG_MAGIN_NUM;
         buf[1] = (size & 0xff) as u8;

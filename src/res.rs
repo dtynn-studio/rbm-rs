@@ -12,6 +12,7 @@ pub enum Error {
     },
     NotOK {
         code: RetCode,
+        errcode: Option<u16>,
         msg: Option<Cow<'static, str>>,
     },
     InvalidData(Cow<'static, str>),
@@ -49,7 +50,7 @@ macro_rules! ensure_buf_size {
 pub(crate) use ensure_buf_size;
 
 #[derive(Debug, Default)]
-pub struct RetCode(u8);
+pub struct RetCode(pub u8);
 
 impl RetCode {
     #[inline]
@@ -68,8 +69,14 @@ macro_rules! ensure_ok {
     (sized: $buf:expr) => {{
         let retcode = $crate::RetCode::from($buf[0]);
         if !retcode.is_ok() {
+            let errcode = if $buf.len() >= 3 {
+                Some(u16::from_le_bytes([$buf[1], $buf[2]]))
+            } else {
+                None
+            };
             return Err($crate::Error::NotOK {
                 code: retcode,
+                errcode,
                 msg: None,
             });
         }
@@ -80,8 +87,14 @@ macro_rules! ensure_ok {
     (sized: $buf:expr, $msg:expr) => {{
         let retcode = $crate::RetCode::from($buf[0]);
         if !retcode.is_ok() {
+            let errcode = if $buf.len() >= 3 {
+                Some(u16::from_le_bytes([$buf[1], $buf[2]]))
+            } else {
+                None
+            };
             return Err($crate::Error::NotOK {
                 code: retcode,
+                errcode,
                 msg: Some($msg.into()),
             });
         }

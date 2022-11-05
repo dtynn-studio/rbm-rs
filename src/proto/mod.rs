@@ -139,6 +139,11 @@ pub trait Serialize {
     const SIZE: usize;
 
     fn ser(&self, w: &mut impl Write) -> Result<()>;
+
+    #[inline]
+    fn size(&self) -> usize {
+        Self::SIZE
+    }
 }
 
 pub trait Deserialize: Sized {
