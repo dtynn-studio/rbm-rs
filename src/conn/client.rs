@@ -10,7 +10,7 @@ use tracing::debug;
 
 use super::transport::Transport;
 use crate::{
-    proto::{Codec, CodecCtx, Deserialize, DussMBAck, Message},
+    proto::{Action, Codec, CodecCtx, Deserialize, DussMBAck, Event, Message},
     Error, Result,
 };
 
@@ -92,6 +92,15 @@ where
             .map_err(|_| Error::Other("response chan broken".into()))?;
 
         <M as Message>::Response::de(&resp_data[..]).map(Some)
+    }
+
+    pub fn send_action<A>(&self, action: A) -> Result<()>
+    where
+        A: Action,
+        A::Message: Message<Ident = C::CmdIdent>,
+        A::Event: Event<Ident = C::CmdIdent>,
+    {
+        unimplemented!()
     }
 }
 

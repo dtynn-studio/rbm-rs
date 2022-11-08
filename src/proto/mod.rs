@@ -122,6 +122,8 @@ pub trait Action {
     type Message: Message;
     type Event: Event;
 
+    fn pack_msg(&self) -> Result<Self::Message>;
+
     fn update(&mut self, event: Self::Event) -> Result<()>;
 
     fn state(&self) -> ActionState;

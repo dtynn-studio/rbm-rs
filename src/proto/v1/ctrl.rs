@@ -114,16 +114,25 @@ impl Serialize for SetSdkMode {
 
 impl_v1_cmd!(ChassisStickOverlay, RetOK, 0x28);
 
-#[derive(Debug, Default)]
+// see https://github.com/dji-sdk/RoboMaster-SDK/blob/8f301fd1bd3038f51c403614c52abbf9e9f5103c/src/robomaster/chassis.py#L353-L355
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum ChassisStickOverlayMode {
+    Disabled = 0,
+    ChassisMode = 1,
+    GimbalMode = 2,
+}
+
+#[derive(Debug)]
 pub struct ChassisStickOverlay {
-    pub mode: u8,
+    pub mode: ChassisStickOverlayMode,
 }
 
 impl Serialize for ChassisStickOverlay {
     const SIZE: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_all(&[self.mode]).map_err(From::from)
+        w.write_all(&[self.mode as u8]).map_err(From::from)
     }
 }
 
@@ -928,12 +937,7 @@ impl_v1_cmd!(ChassisPwmPercent, RetOK, 0x3c);
 #[derive(Debug, Default)]
 pub struct ChassisPwmPercent {
     pub mask: u8,
-    pub pwm1: u16,
-    pub pwm2: u16,
-    pub pwm3: u16,
-    pub pwm4: u16,
-    pub pwm5: u16,
-    pub pwm6: u16,
+    pub pwms: [u16; 6],
 }
 
 impl Serialize for ChassisPwmPercent {
@@ -941,12 +945,9 @@ impl Serialize for ChassisPwmPercent {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.mask)?;
-        w.write_u16::<LE>(self.pwm1)?;
-        w.write_u16::<LE>(self.pwm2)?;
-        w.write_u16::<LE>(self.pwm3)?;
-        w.write_u16::<LE>(self.pwm4)?;
-        w.write_u16::<LE>(self.pwm5)?;
-        w.write_u16::<LE>(self.pwm6)?;
+        for v in self.pwms {
+            w.write_u16::<LE>(v)?;
+        }
         Ok(())
     }
 }
@@ -956,12 +957,7 @@ impl_v1_cmd!(ChassisPwmFreq, RetOK, 0x2b);
 #[derive(Debug, Default)]
 pub struct ChassisPwmFreq {
     pub mask: u8,
-    pub pwm1: u16,
-    pub pwm2: u16,
-    pub pwm3: u16,
-    pub pwm4: u16,
-    pub pwm5: u16,
-    pub pwm6: u16,
+    pub pwms: [u16; 6],
 }
 
 impl Serialize for ChassisPwmFreq {
@@ -969,12 +965,9 @@ impl Serialize for ChassisPwmFreq {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.mask)?;
-        w.write_u16::<LE>(self.pwm1)?;
-        w.write_u16::<LE>(self.pwm2)?;
-        w.write_u16::<LE>(self.pwm3)?;
-        w.write_u16::<LE>(self.pwm4)?;
-        w.write_u16::<LE>(self.pwm5)?;
-        w.write_u16::<LE>(self.pwm6)?;
+        for v in self.pwms {
+            w.write_u16::<LE>(v)?;
+        }
         Ok(())
     }
 }
