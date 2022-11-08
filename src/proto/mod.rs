@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::{borrow::Cow, hash::Hash};
 
-use crate::{ensure_ok, Error, Result};
+use crate::{ensure_buf_size, ensure_ok, Error, Result};
 
 mod util;
 pub mod v1;
@@ -99,6 +99,38 @@ pub trait Event: std::fmt::Debug + Deserialize {
     const IDENT: Self::Ident;
 }
 
+pub trait ActionResponse {
+    fn progress(&self) -> &ActionProgress;
+}
+
+const ACTION_PROGRESS_SIZE: usize = 3;
+
+#[derive(Debug)]
+pub struct ActionProgress {
+    pub id: u8,
+    pub percent: u8,
+    pub state: ActionState,
+}
+
+impl Deserialize for ActionProgress {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_buf_size!(buf, ACTION_PROGRESS_SIZE);
+        Ok(Self {
+            id: buf[0],
+            percent: buf[1],
+            state: buf[2].try_into()?,
+        })
+    }
+}
+
+impl TryFrom<u8> for ActionState {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        unimplemented!()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ActionState {
     Idle,
@@ -120,11 +152,9 @@ impl ActionState {
 
 pub trait Action {
     type Message: Message;
-    type Event: Event;
+    type Resp: Event + ActionResponse;
 
     fn pack_msg(&self) -> Result<Self::Message>;
-
-    fn update(&mut self, event: Self::Event) -> Result<()>;
 
     fn state(&self) -> ActionState;
 
@@ -134,7 +164,7 @@ pub trait Action {
 
     fn apply_state(&mut self, state: ActionState) -> Result<()>;
 
-    fn apply_event(&mut self, event: Self::Event) -> Result<()>;
+    fn apply_response(&mut self, event: Self::Resp) -> Result<()>;
 }
 
 pub trait Serialize {

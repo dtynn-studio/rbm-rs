@@ -175,5 +175,16 @@ macro_rules! impl_v1_event {
     };
 }
 
+macro_rules! impl_v1_action_response {
+    ($name:ident, $field:ident) => {
+        impl $crate::proto::ActionResponse for $name {
+            fn progress(&self) -> &ActionProgress {
+                &self.$field
+            }
+        }
+    };
+}
+
+pub(self) use impl_v1_action_response;
 pub(self) use impl_v1_cmd;
 pub(self) use impl_v1_event;

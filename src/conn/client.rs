@@ -10,7 +10,7 @@ use tracing::debug;
 
 use super::transport::Transport;
 use crate::{
-    proto::{Action, Codec, CodecCtx, Deserialize, DussMBAck, Event, Message},
+    proto::{Action, ActionResponse, Codec, CodecCtx, Deserialize, DussMBAck, Event, Message},
     Error, Result,
 };
 
@@ -98,7 +98,7 @@ where
     where
         A: Action,
         A::Message: Message<Ident = C::CmdIdent>,
-        A::Event: Event<Ident = C::CmdIdent>,
+        A::Resp: Event<Ident = C::CmdIdent> + ActionResponse,
     {
         unimplemented!()
     }

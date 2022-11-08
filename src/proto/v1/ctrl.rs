@@ -11,8 +11,8 @@ use crate::{
     ensure_buf_size, ensure_ok,
     proto::{
         host2byte, impl_empty_ser,
-        v1::{impl_v1_cmd, impl_v1_event},
-        Deserialize, DussMBType, RetOK, Serialize,
+        v1::{impl_v1_action_response, impl_v1_cmd, impl_v1_event},
+        ActionProgress, Deserialize, DussMBType, RetOK, Serialize, ACTION_PROGRESS_SIZE,
     },
     Result,
 };
@@ -845,12 +845,11 @@ impl Serialize for PositionMove {
 }
 
 impl_v1_event!(PositionPush, 0x2a);
+impl_v1_action_response!(PositionPush, prog);
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PositionPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
+    pub prog: ActionProgress,
     pub pos_x: i16,
     pub pos_y: i16,
     pub pos_z: i16,
@@ -858,16 +857,15 @@ pub struct PositionPush {
 
 impl Deserialize for PositionPush {
     fn de(buf: &[u8]) -> Result<Self> {
+        let prog = ActionProgress::de(buf)?;
         ensure_buf_size!(buf, 9);
-        let mut reader = Cursor::new(&buf[3..]);
+        let mut reader = Cursor::new(&buf[ACTION_PROGRESS_SIZE..]);
         let pos_x = reader.read_i16::<LE>()?;
         let pos_y = reader.read_i16::<LE>()?;
         let pos_z = reader.read_i16::<LE>()?;
 
         Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2],
+            prog,
             pos_x,
             pos_y,
             pos_z,

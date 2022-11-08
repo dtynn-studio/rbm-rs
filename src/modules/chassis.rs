@@ -26,7 +26,7 @@ pub struct MoveAction {
 
 impl Action for MoveAction {
     type Message = PositionMove;
-    type Event = PositionPush;
+    type Resp = PositionPush;
 
     fn pack_msg(&self) -> Result<Self::Message> {
         let pos_x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.val2proto(self.x)?;
@@ -45,10 +45,6 @@ impl Action for MoveAction {
         })
     }
 
-    fn update(&mut self, _event: Self::Event) -> Result<()> {
-        unimplemented!()
-    }
-
     fn state(&self) -> ActionState {
         unimplemented!()
     }
@@ -65,7 +61,7 @@ impl Action for MoveAction {
         unimplemented!()
     }
 
-    fn apply_event(&mut self, _event: Self::Event) -> Result<()> {
+    fn apply_response(&mut self, event: Self::Resp) -> Result<()> {
         unimplemented!()
     }
 }
