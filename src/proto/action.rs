@@ -1,32 +1,5 @@
-use super::{ensure_buf_size, Deserialize, Serialize};
-use crate::{Error, Result, RetCode};
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Acception {
-    Started,
-    Rejected,
-    Succeeded,
-    Failed,
-}
-
-impl TryFrom<u8> for Acception {
-    type Error = Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let res = match value {
-            0 => Acception::Started,
-            1 => Acception::Rejected,
-            2 => Acception::Succeeded,
-            other => {
-                return Err(Error::InvalidData(
-                    format!("unknown action acception value {}", other).into(),
-                ))
-            }
-        };
-
-        Ok(res)
-    }
-}
+use super::{cmd::Command, Event};
+use crate::{Error, Result};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum State {
@@ -61,44 +34,27 @@ impl TryFrom<u8> for State {
     }
 }
 
-impl From<Acception> for State {
-    fn from(val: Acception) -> Self {
-        match val {
-            Acception::Started => State::Started,
-            Acception::Rejected => State::Rejected,
-            Acception::Succeeded => State::Succeeded,
-            Acception::Failed => State::Failed,
-        }
-    }
-}
-
 impl State {
     pub fn is_running(&self) -> bool {
         *self == State::Started || *self == State::Running
     }
-}
 
-#[derive(Debug)]
-pub struct Accepted {
-    pub retcode: RetCode,
-    pub acception: Acception,
-}
-
-impl Deserialize for Accepted {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 1);
-        let retcode: RetCode = buf[0].into();
-        let acception = if retcode.is_ok() {
-            ensure_buf_size!(buf, 2);
-            Acception::try_from(buf[1])?
-        } else {
-            Acception::Failed
-        };
-
-        Ok(Self { retcode, acception })
+    pub fn is_completed(&self) -> bool {
+        match self {
+            Self::Succeeded | Self::Failed | Self::Exception | Self::Rejected => true,
+            _ => false,
+        }
     }
 }
 
-pub trait ActionRequest: std::fmt::Debug + Serialize {}
+pub trait Action {
+    type Cmd: Command;
+    type Event: Event;
+    type Status;
 
-pub trait Action {}
+    fn pack_cmd(&self) -> Result<Self::Cmd>;
+
+    fn apply_cmd_resp(&mut self, resp: <Self::Cmd as Command>::Response) -> Result<bool>;
+
+    fn apply_event(&mut self, status: Self::Status, evt: Self::Event) -> Result<bool>;
+}

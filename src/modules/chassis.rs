@@ -1,16 +1,14 @@
-use std::borrow::Cow;
-
 use crate::{
     conn::Client,
     proto::{
+        action::Action,
         v1::{
             ctrl::{
                 ChassisPwmFreq, ChassisPwmPercent, ChassisSpeedMode, ChassisStickOverlay,
                 ChassisStickOverlayMode, PositionMove, PositionPush, SetWheelSpeed,
             },
-            V1,
+            V1ActionResponse, V1ActionStatus, V1,
         },
-        Action, ActionState,
     },
     util::unit_convertor,
     Result,
@@ -22,13 +20,16 @@ pub struct MoveAction {
     z: f32,
     spd_xy: f32,
     spd_z: f32,
+
+    status: V1ActionStatus,
 }
 
 impl Action for MoveAction {
-    type Message = PositionMove;
-    type Resp = PositionPush;
+    type Cmd = PositionMove;
+    type Event = PositionPush;
+    type Status = V1ActionStatus;
 
-    fn pack_msg(&self) -> Result<Self::Message> {
+    fn pack_cmd(&self) -> Result<Self::Cmd> {
         let pos_x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.val2proto(self.x)?;
         let pos_y = unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.val2proto(self.y)?;
         let pos_z = unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.val2proto(self.z)?;
@@ -45,24 +46,17 @@ impl Action for MoveAction {
         })
     }
 
-    fn state(&self) -> ActionState {
-        unimplemented!()
+    fn apply_cmd_resp(&mut self, resp: V1ActionResponse) -> Result<bool> {
+        self.status.state = resp.into();
+        Ok(self.status.is_completed())
     }
 
-    fn percent(&self) -> f64 {
-        unimplemented!()
-    }
-
-    fn failure_reason(&self) -> Option<Cow<'static, str>> {
-        unimplemented!()
-    }
-
-    fn apply_state(&mut self, _state: ActionState) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn apply_response(&mut self, event: Self::Resp) -> Result<()> {
-        unimplemented!()
+    fn apply_event(&mut self, status: Self::Status, evt: Self::Event) -> Result<bool> {
+        self.x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.proto2val(evt.pos_x)?;
+        self.y = unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.proto2val(evt.pos_y)?;
+        self.z = unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.proto2val(evt.pos_z)?;
+        self.status = status;
+        Ok(self.status.is_completed())
     }
 }
 

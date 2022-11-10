@@ -1,7 +1,7 @@
+use std::hash::Hash;
 use std::io::Write;
-use std::{borrow::Cow, hash::Hash};
 
-use crate::{ensure_buf_size, ensure_ok, Error, Result};
+use crate::{ensure_ok, Error, Result};
 
 pub mod action;
 pub mod cmd;
@@ -73,6 +73,8 @@ pub trait Codec: Default + Send + Sync {
     type Ident: Eq + Hash + Send + std::fmt::Debug;
     type Seq: Eq + Hash + Send + std::fmt::Debug + Copy;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
+    type ActionRespons: Deserialize + Send + std::fmt::Debug;
+    type ActionStatus: Send + std::fmt::Debug;
 
     fn next_cmd_seq(&self) -> Self::Seq;
 
@@ -93,6 +95,8 @@ pub trait Codec: Default + Send + Sync {
 
     #[allow(clippy::type_complexity)]
     fn unpack_raw(buf: &[u8]) -> Result<((Self::Ident, Self::Seq), Self::Ctx, &[u8], usize)>;
+
+    fn unpack_action_status(buf: &[u8]) -> Result<(Self::Seq, Self::ActionStatus, usize)>;
 }
 
 pub trait Message: std::fmt::Debug + Serialize {
@@ -107,74 +111,6 @@ pub trait Event: std::fmt::Debug + Deserialize {
     type Ident;
 
     const IDENT: Self::Ident;
-}
-
-pub trait ActionResponse {
-    fn progress(&self) -> &ActionProgress;
-}
-
-const ACTION_PROGRESS_SIZE: usize = 3;
-
-#[derive(Debug)]
-pub struct ActionProgress {
-    pub id: u8,
-    pub percent: u8,
-    pub state: ActionState,
-}
-
-impl Deserialize for ActionProgress {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, ACTION_PROGRESS_SIZE);
-        Ok(Self {
-            id: buf[0],
-            percent: buf[1],
-            state: buf[2].try_into()?,
-        })
-    }
-}
-
-impl TryFrom<u8> for ActionState {
-    type Error = Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        unimplemented!()
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ActionState {
-    Idle,
-    Running,
-    Succeeded,
-    Failed,
-    Started,
-    Aborting,
-    Aborted,
-    Rejected,
-    Exception,
-}
-
-impl ActionState {
-    pub fn is_running(&self) -> bool {
-        *self == ActionState::Started || *self == ActionState::Running
-    }
-}
-
-pub trait Action {
-    type Message: Message;
-    type Resp: Event + ActionResponse;
-
-    fn pack_msg(&self) -> Result<Self::Message>;
-
-    fn state(&self) -> ActionState;
-
-    fn percent(&self) -> f64;
-
-    fn failure_reason(&self) -> Option<Cow<'static, str>>;
-
-    fn apply_state(&mut self, state: ActionState) -> Result<()>;
-
-    fn apply_response(&mut self, event: Self::Resp) -> Result<()>;
 }
 
 pub trait Serialize {

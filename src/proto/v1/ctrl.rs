@@ -11,8 +11,8 @@ use crate::{
     ensure_buf_size, ensure_ok,
     proto::{
         host2byte, impl_empty_ser,
-        v1::{impl_v1_action_response, impl_v1_cmd, impl_v1_event},
-        ActionProgress, Deserialize, DussMBType, RetOK, Serialize, ACTION_PROGRESS_SIZE,
+        v1::{impl_v1_action_cmd, impl_v1_cmd, impl_v1_event, ACTION_STATUS_SIZE},
+        Deserialize, DussMBType, RetOK, Serialize,
     },
     Result,
 };
@@ -536,7 +536,7 @@ impl Deserialize for UwbModuleEvent {
     }
 }
 
-impl_v1_cmd!(PlaySound, ActionAccepted, 0xb3);
+impl_v1_action_cmd!(PlaySound, 0xb3);
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -545,17 +545,6 @@ pub enum PlaySoundCtrl {
     Interupt = 1,
     Mixed = 2,
     Ignored = 3,
-}
-
-#[derive(Debug)]
-pub struct ActionAccepted(pub u8);
-
-impl Deserialize for ActionAccepted {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_ok!(buf);
-        ensure_buf_size!(buf, 2);
-        Ok(ActionAccepted(buf[1]))
-    }
 }
 
 #[derive(Debug)]
@@ -659,7 +648,7 @@ pub struct GimbalRotate {
     pub pitch_speed: u16,
 }
 
-impl_v1_cmd!(GimbalRotate, ActionAccepted, 0xb0);
+impl_v1_action_cmd!(GimbalRotate, 0xb0);
 
 impl Default for GimbalRotate {
     fn default() -> Self {
@@ -741,7 +730,7 @@ impl Deserialize for GimbalActionPush {
     }
 }
 
-impl_v1_cmd!(GimbalRecenter, ActionAccepted, 0xb2);
+impl_v1_action_cmd!(GimbalRecenter, 0xb2);
 
 #[derive(Debug)]
 pub struct GimbalRecenter {
@@ -790,7 +779,7 @@ impl Serialize for GimbalRecenter {
     }
 }
 
-impl_v1_cmd!(PositionMove, ActionAccepted, 0x25);
+impl_v1_action_cmd!(PositionMove, 0x25);
 
 #[derive(Debug)]
 pub struct PositionMove {
@@ -845,11 +834,9 @@ impl Serialize for PositionMove {
 }
 
 impl_v1_event!(PositionPush, 0x2a);
-impl_v1_action_response!(PositionPush, prog);
 
 #[derive(Debug)]
 pub struct PositionPush {
-    pub prog: ActionProgress,
     pub pos_x: i16,
     pub pos_y: i16,
     pub pos_z: i16,
@@ -857,15 +844,13 @@ pub struct PositionPush {
 
 impl Deserialize for PositionPush {
     fn de(buf: &[u8]) -> Result<Self> {
-        let prog = ActionProgress::de(buf)?;
-        ensure_buf_size!(buf, 9);
-        let mut reader = Cursor::new(&buf[ACTION_PROGRESS_SIZE..]);
+        ensure_buf_size!(buf, 9 - ACTION_STATUS_SIZE);
+        let mut reader = Cursor::new(buf);
         let pos_x = reader.read_i16::<LE>()?;
         let pos_y = reader.read_i16::<LE>()?;
         let pos_z = reader.read_i16::<LE>()?;
 
         Ok(Self {
-            prog,
             pos_x,
             pos_y,
             pos_z,
@@ -1126,7 +1111,7 @@ impl Serialize for SensorGetData {
     }
 }
 
-impl_v1_cmd!(ServoCtrlSet, ActionAccepted, 0xb7);
+impl_v1_action_cmd!(ServoCtrlSet, 0xb7);
 
 #[derive(Debug)]
 pub struct ServoCtrlSet {
@@ -1185,7 +1170,7 @@ impl Deserialize for ServoCtrlPush {
     }
 }
 
-impl_v1_cmd!(RoboticArmMoveCtrl, ActionAccepted, 0xb5);
+impl_v1_action_cmd!(RoboticArmMoveCtrl, 0xb5);
 
 #[derive(Debug)]
 pub struct RoboticArmMoveCtrl {

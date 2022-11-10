@@ -2,12 +2,12 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{
-    Codec, CodecCtx, DussMBAck, DussMBType, Message, RM_SDK_FIRST_ACTION_ID, RM_SDK_FIRST_SEQ_ID,
-    RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
+    action, Codec, CodecCtx, Deserialize, DussMBAck, DussMBType, Message, RM_SDK_FIRST_ACTION_ID,
+    RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
 };
 use crate::{
     algo::{crc16_calc, crc8_calc},
-    ensure_buf_size, Error, Result,
+    ensure_buf_size, Error, Result, RetCode,
 };
 
 pub mod camera;
@@ -55,6 +55,52 @@ impl Default for V1 {
     }
 }
 
+#[derive(Debug)]
+pub struct V1ActionResponse {
+    pub retcode: RetCode,
+    pub acception: Option<u8>,
+}
+
+impl From<V1ActionResponse> for action::State {
+    fn from(v: V1ActionResponse) -> Self {
+        match (v.retcode, v.acception) {
+            (RetCode(0), Some(0)) => action::State::Started,
+            (RetCode(0), Some(1)) => action::State::Rejected,
+            (RetCode(0), Some(2)) => action::State::Succeeded,
+            _ => action::State::Failed,
+        }
+    }
+}
+
+impl Deserialize for V1ActionResponse {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_buf_size!(buf, 1);
+        let retcode: RetCode = buf[0].into();
+        let acception = if retcode.is_ok() {
+            ensure_buf_size!(buf, 2);
+            Some(buf[1])
+        } else {
+            None
+        };
+
+        Ok(Self { retcode, acception })
+    }
+}
+
+const ACTION_STATUS_SIZE: usize = 3;
+
+#[derive(Debug)]
+pub struct V1ActionStatus {
+    pub percent: u8,
+    pub state: action::State,
+}
+
+impl V1ActionStatus {
+    pub fn is_completed(&self) -> bool {
+        self.percent == 100 || self.state.is_completed()
+    }
+}
+
 const CMD_SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
 const ACTION_SEQ_MOD: u64 = (RM_SDK_LAST_ACTION_ID - RM_SDK_FIRST_ACTION_ID) as u64;
 
@@ -62,17 +108,17 @@ impl Codec for V1 {
     type Ident = V1Ident;
     type Seq = u16;
     type Ctx = V1Ctx;
+    type ActionRespons = V1ActionResponse;
+    type ActionStatus = V1ActionStatus;
 
     fn next_cmd_seq(&self) -> Self::Seq {
         let next = self.cmd_seq.fetch_add(1, Ordering::Relaxed);
-        let seq = RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16;
-        seq
+        RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16
     }
 
     fn next_action_seq(&self) -> Self::Seq {
         let next = self.action_seq.fetch_add(1, Ordering::Relaxed);
-        let seq = RM_SDK_FIRST_ACTION_ID + (next % ACTION_SEQ_MOD) as u16;
-        seq
+        RM_SDK_FIRST_ACTION_ID + (next % ACTION_SEQ_MOD) as u16
     }
 
     fn ctx<M: Message<Ident = Self::Ident>>(
@@ -160,15 +206,42 @@ impl Codec for V1 {
             size,
         ))
     }
+
+    fn unpack_action_status(buf: &[u8]) -> Result<(Self::Seq, Self::ActionStatus, usize)> {
+        ensure_buf_size!(buf, ACTION_STATUS_SIZE);
+        Ok((
+            buf[0] as u16,
+            V1ActionStatus {
+                percent: buf[1],
+                state: buf[2].try_into()?,
+            },
+            ACTION_STATUS_SIZE,
+        ))
+    }
 }
 
-macro_rules! impl_v1_cmd {
-    ($name:ident, $resp:ty, $cid:literal) => {
+macro_rules! impl_v1_msg {
+    ($name:ident, $cid:literal) => {
         impl $crate::proto::Message for $name {
             type Ident = $crate::proto::v1::V1Ident;
 
             const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
         }
+    };
+
+    ($name:ident, $cid:literal, $ctype:expr) => {
+        impl $crate::proto::Message for $name {
+            type Ident = $crate::proto::v1::V1Ident;
+
+            const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
+            const CMD_TYPE: $crate::proto::DussMBType = $ctype;
+        }
+    };
+}
+
+macro_rules! impl_v1_cmd {
+    ($name:ident, $resp:ty, $cid:literal) => {
+        $crate::proto::v1::impl_v1_msg!($name, $cid);
 
         impl $crate::proto::cmd::Command for $name {
             type Response = $resp;
@@ -176,16 +249,21 @@ macro_rules! impl_v1_cmd {
     };
 
     ($name:ident, $resp:ty, $cid:literal, $ctype:expr) => {
-        impl $crate::proto::Message for $name {
-            type Ident = $crate::proto::v1::V1Ident;
-
-            const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
-            const CMD_TYPE: $crate::proto::DussMBType = $ctype;
-        }
+        $crate::proto::v1::impl_v1_msg!($name, $cid, $ctype);
 
         impl $crate::proto::cmd::Command for $name {
             type Response = $resp;
         }
+    };
+}
+
+macro_rules! impl_v1_action_cmd {
+    ($name:ident, $cid:literal) => {
+        $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid);
+    };
+
+    ($name:ident, $cid:literal, $ctype:expr) => {
+        $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid, $ctype);
     };
 }
 
@@ -199,16 +277,7 @@ macro_rules! impl_v1_event {
     };
 }
 
-macro_rules! impl_v1_action_response {
-    ($name:ident, $field:ident) => {
-        impl $crate::proto::ActionResponse for $name {
-            fn progress(&self) -> &ActionProgress {
-                &self.$field
-            }
-        }
-    };
-}
-
-pub(self) use impl_v1_action_response;
+pub(self) use impl_v1_action_cmd;
 pub(self) use impl_v1_cmd;
 pub(self) use impl_v1_event;
+pub(self) use impl_v1_msg;
