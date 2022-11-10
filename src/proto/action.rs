@@ -40,10 +40,10 @@ impl State {
     }
 
     pub fn is_completed(&self) -> bool {
-        match self {
-            Self::Succeeded | Self::Failed | Self::Exception | Self::Rejected => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::Exception | Self::Rejected
+        )
     }
 }
 
@@ -51,6 +51,8 @@ pub trait Action {
     type Cmd: Command;
     type Event: Event;
     type Status;
+
+    const RECEIVER: u8;
 
     fn pack_cmd(&self) -> Result<Self::Cmd>;
 

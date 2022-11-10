@@ -95,6 +95,15 @@ pub struct V1ActionStatus {
     pub state: action::State,
 }
 
+impl Default for V1ActionStatus {
+    fn default() -> Self {
+        Self {
+            percent: 0,
+            state: action::State::Idle,
+        }
+    }
+}
+
 impl V1ActionStatus {
     pub fn is_completed(&self) -> bool {
         self.percent == 100 || self.state.is_completed()
@@ -108,7 +117,7 @@ impl Codec for V1 {
     type Ident = V1Ident;
     type Seq = u16;
     type Ctx = V1Ctx;
-    type ActionRespons = V1ActionResponse;
+    type ActionResponse = V1ActionResponse;
     type ActionStatus = V1ActionStatus;
 
     fn next_cmd_seq(&self) -> Self::Seq {

@@ -73,7 +73,7 @@ pub trait Codec: Default + Send + Sync {
     type Ident: Eq + Hash + Send + std::fmt::Debug;
     type Seq: Eq + Hash + Send + std::fmt::Debug + Copy;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
-    type ActionRespons: Deserialize + Send + std::fmt::Debug;
+    type ActionResponse: Deserialize + Send + std::fmt::Debug;
     type ActionStatus: Send + std::fmt::Debug;
 
     fn next_cmd_seq(&self) -> Self::Seq;

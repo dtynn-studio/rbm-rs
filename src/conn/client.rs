@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::thread;
 
 use crossbeam_channel::{bounded, select, unbounded, Receiver, Sender};
@@ -10,7 +11,9 @@ use tracing::debug;
 
 use super::transport::Transport;
 use crate::{
-    proto::{cmd::Command, Codec, CodecCtx, Deserialize, DussMBAck},
+    proto::{
+        action::Action, cmd::Command, Codec, CodecCtx, Deserialize, DussMBAck, Event, Message,
+    },
     Error, Result,
 };
 
@@ -21,6 +24,13 @@ where
     host: u8,
     target: u8,
     cmd_tx: Sender<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    action_tx: Sender<(
+        Vec<u8>,
+        (C::Ident, C::Seq),
+        Box<dyn Fn(C::ActionResponse) -> Result<bool> + Send>,
+        (C::Ident, C::Seq),
+        Box<dyn Fn(C::ActionStatus, &[u8]) -> Result<bool> + Send>,
+    )>,
     codec: Arc<C>,
     done_tx: Option<Sender<()>>,
     join: Option<thread::JoinHandle<()>>,
@@ -46,16 +56,18 @@ where
 
         let codec = Arc::new(C::default());
         let (cmd_tx, cmd_rx) = unbounded();
+        let (action_tx, action_rx) = unbounded();
         let (done_tx, done_rx) = bounded(0);
 
         let join = thread::spawn(move || {
-            start_client_inner::<T, C>(sender_trans, recv_trans, cmd_rx, done_rx);
+            start_client_inner::<T, C>(sender_trans, recv_trans, cmd_rx, action_rx, done_rx);
         });
 
         Ok(Self {
             host,
             target,
             cmd_tx,
+            action_tx,
             codec,
             done_tx: Some(done_tx),
             join: Some(join),
@@ -94,6 +106,46 @@ where
 
         <CMD as Command>::Response::de(&resp_data[..]).map(Some)
     }
+
+    pub fn send_action<A>(&self, action: A) -> Result<Arc<RwLock<A>>>
+    where
+        A: Action<Status = C::ActionStatus> + Sync + Send + 'static,
+        A::Cmd: Command<Ident = C::Ident, Response = C::ActionResponse>,
+        A::Event: Event<Ident = C::Ident>,
+    {
+        let cmd = action.pack_cmd()?;
+        let ctx = C::ctx::<A::Cmd>(self.host, A::RECEIVER, None);
+        let cmd_seq = self.codec.next_cmd_seq();
+        let data = self.codec.pack_msg(ctx, cmd, cmd_seq)?;
+        let action_seq = self.codec.next_action_seq();
+        let locked = Arc::new(RwLock::new(action));
+
+        let cloned_in_resp_callback = locked.clone();
+        let cloned_in_event_callback = locked.clone();
+
+        self.action_tx
+            .send((
+                data,
+                (<A::Cmd as Message>::IDENT, cmd_seq),
+                Box::new(move |resp| {
+                    let mut act = cloned_in_resp_callback
+                        .write()
+                        .map_err(|_| Error::Other("action mutex poisioned".into()))?;
+                    act.apply_cmd_resp(resp)
+                }),
+                (<A::Event as Event>::IDENT, action_seq),
+                Box::new(move |status, data| {
+                    let mut act = cloned_in_event_callback
+                        .write()
+                        .map_err(|_| Error::Other("action mutex poisioned".into()))?;
+                    let evt = A::Event::de(data)?;
+                    act.apply_event(status, evt)
+                }),
+            ))
+            .map_err(|_| Error::Other("sending chan broken".into()))?;
+
+        Ok(locked)
+    }
 }
 
 impl<C> Drop for Client<C>
@@ -112,7 +164,14 @@ where
 fn start_client_inner<T, C>(
     mut sender_trans: T,
     mut recv_trans: T,
-    msg_rx: Receiver<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    cmd_rx: Receiver<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    action_rx: Receiver<(
+        Vec<u8>,
+        (C::Ident, C::Seq),
+        Box<dyn Fn(C::ActionResponse) -> Result<bool> + Send>,
+        (C::Ident, C::Seq),
+        Box<dyn Fn(C::ActionStatus, &[u8]) -> Result<bool> + Send>,
+    )>,
     done: Receiver<()>,
 ) where
     T: Transport,
@@ -127,7 +186,7 @@ fn start_client_inner<T, C>(
             if let Err(_e) = start_client_dispatch::<T, C>(
                 done,
                 &mut sender_trans,
-                msg_rx,
+                cmd_rx,
                 recv_raw_rx,
                 recv_done_rx,
             ) {

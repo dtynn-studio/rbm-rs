@@ -5,6 +5,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rbm_rs::{
     conn::{Client, Udp},
+    modules::chassis::MoveAction,
     proto::{host2byte, v1},
 };
 
@@ -74,5 +75,10 @@ pub fn main() {
         let msg = v1::normal::GetSN::default();
         let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, None);
         println!("resp: {:?}", resp);
+    }
+
+    {
+        let move_action = MoveAction::default();
+        let guarded = device_client.send_action(move_action).expect("send action");
     }
 }

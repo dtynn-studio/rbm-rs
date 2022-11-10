@@ -2,6 +2,7 @@ use crate::{
     conn::Client,
     proto::{
         action::Action,
+        host2byte,
         v1::{
             ctrl::{
                 ChassisPwmFreq, ChassisPwmPercent, ChassisSpeedMode, ChassisStickOverlay,
@@ -14,12 +15,13 @@ use crate::{
     Result,
 };
 
+#[derive(Debug, Default)]
 pub struct MoveAction {
-    x: f32,
-    y: f32,
-    z: f32,
-    spd_xy: f32,
-    spd_z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub spd_xy: f32,
+    pub spd_z: f32,
 
     status: V1ActionStatus,
 }
@@ -28,6 +30,8 @@ impl Action for MoveAction {
     type Cmd = PositionMove;
     type Event = PositionPush;
     type Status = V1ActionStatus;
+
+    const RECEIVER: u8 = host2byte(3, 6);
 
     fn pack_cmd(&self) -> Result<Self::Cmd> {
         let pos_x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.val2proto(self.x)?;
