@@ -3,6 +3,8 @@ use std::{borrow::Cow, hash::Hash};
 
 use crate::{ensure_buf_size, ensure_ok, Error, Result};
 
+pub mod action;
+pub mod cmd;
 mod util;
 pub mod v1;
 
@@ -10,6 +12,9 @@ pub use util::{byte2host, host2byte};
 
 pub const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 pub const RM_SDK_LAST_SEQ_ID: u16 = 20000;
+
+pub const RM_SDK_FIRST_ACTION_ID: u16 = 1;
+pub const RM_SDK_LAST_ACTION_ID: u16 = 255;
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -65,31 +70,36 @@ pub trait CodecCtx {
 
 #[allow(clippy::type_complexity)]
 pub trait Codec: Default + Send + Sync {
-    type CmdIdent: Eq + Hash + Send + std::fmt::Debug;
-    type Seq: Eq + Hash + Send + std::fmt::Debug;
+    type Ident: Eq + Hash + Send + std::fmt::Debug;
+    type Seq: Eq + Hash + Send + std::fmt::Debug + Copy;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
 
-    fn ctx<M: Message<Ident = Self::CmdIdent>>(
+    fn next_cmd_seq(&self) -> Self::Seq;
+
+    fn next_action_seq(&self) -> Self::Seq;
+
+    fn ctx<M: Message<Ident = Self::Ident>>(
         sender: u8,
         receiver: u8,
         need_ack: Option<DussMBAck>,
     ) -> Self::Ctx;
 
-    fn pack_msg<M: Message<Ident = Self::CmdIdent>>(
+    fn pack_msg<M: Message<Ident = Self::Ident>>(
         &self,
         ctx: Self::Ctx,
         msg: M,
-    ) -> Result<((Self::CmdIdent, Self::Seq), Vec<u8>)>;
+        seq: Self::Seq,
+    ) -> Result<Vec<u8>>;
 
     #[allow(clippy::type_complexity)]
-    fn unpack_raw(buf: &[u8]) -> Result<((Self::CmdIdent, Self::Seq), Self::Ctx, &[u8], usize)>;
+    fn unpack_raw(buf: &[u8]) -> Result<((Self::Ident, Self::Seq), Self::Ctx, &[u8], usize)>;
 }
 
 pub trait Message: std::fmt::Debug + Serialize {
     type Ident;
-    type Response: std::fmt::Debug + Deserialize;
 
     const IDENT: Self::Ident;
+
     const CMD_TYPE: DussMBType = DussMBType::Req;
 }
 

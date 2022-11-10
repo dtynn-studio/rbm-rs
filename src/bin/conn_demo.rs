@@ -42,7 +42,7 @@ pub fn main() {
         };
 
         let resp = proxy_client
-            .send_msg(None, msg, None)
+            .send_cmd(None, msg, None)
             .expect("set sdk conn");
         println!("resp: {:?}", resp);
     }
@@ -56,7 +56,7 @@ pub fn main() {
     {
         println!("enable sdk");
         let msg: v1::ctrl::SetSdkMode = true.into();
-        let resp = device_client.send_msg(None, msg, None);
+        let resp = device_client.send_cmd(None, msg, None);
         println!("resp: {:?}", resp);
     }
 
@@ -64,7 +64,7 @@ pub fn main() {
     {
         println!("get product ver");
         let msg = v1::normal::GetProductVersion::default();
-        let resp = device_client.send_msg(Some(host2byte(8, 1)), msg, None);
+        let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, None);
         println!("resp: {:?}", resp);
     }
 
@@ -72,7 +72,7 @@ pub fn main() {
     {
         println!("get sn");
         let msg = v1::normal::GetSN::default();
-        let resp = device_client.send_msg(Some(host2byte(8, 1)), msg, None);
+        let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, None);
         println!("resp: {:?}", resp);
     }
 }

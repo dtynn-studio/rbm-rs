@@ -10,7 +10,7 @@ use tracing::debug;
 
 use super::transport::Transport;
 use crate::{
-    proto::{Action, ActionResponse, Codec, CodecCtx, Deserialize, DussMBAck, Event, Message},
+    proto::{cmd::Command, Codec, CodecCtx, Deserialize, DussMBAck},
     Error, Result,
 };
 
@@ -20,7 +20,7 @@ where
 {
     host: u8,
     target: u8,
-    msg_tx: Sender<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    cmd_tx: Sender<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
     codec: Arc<C>,
     done_tx: Option<Sender<()>>,
     join: Option<thread::JoinHandle<()>>,
@@ -45,62 +45,54 @@ where
         let recv_trans = sender_trans.try_clone()?;
 
         let codec = Arc::new(C::default());
-        let (msg_tx, msg_rx) = unbounded();
+        let (cmd_tx, cmd_rx) = unbounded();
         let (done_tx, done_rx) = bounded(0);
 
         let join = thread::spawn(move || {
-            start_client_inner::<T, C>(sender_trans, recv_trans, msg_rx, done_rx);
+            start_client_inner::<T, C>(sender_trans, recv_trans, cmd_rx, done_rx);
         });
 
         Ok(Self {
             host,
             target,
-            msg_tx,
+            cmd_tx,
             codec,
             done_tx: Some(done_tx),
             join: Some(join),
         })
     }
 
-    pub fn send_msg<M>(
+    pub fn send_cmd<CMD>(
         &self,
         receiver: Option<u8>,
-        msg: M,
+        cmd: CMD,
         need_ack: Option<DussMBAck>,
-    ) -> Result<Option<M::Response>>
+    ) -> Result<Option<CMD::Response>>
     where
-        M: Message<Ident = C::CmdIdent>,
+        CMD: Command<Ident = C::Ident>,
     {
-        let ctx = C::ctx::<M>(self.host, receiver.unwrap_or(self.target), need_ack);
+        let ctx = C::ctx::<CMD>(self.host, receiver.unwrap_or(self.target), need_ack);
 
         let no_ret = ctx.need_ack() == DussMBAck::No;
-        let (msg_id, data) = self.codec.pack_msg(ctx, msg)?;
+        let cmd_seq = self.codec.next_cmd_seq();
+        let data = self.codec.pack_msg(ctx, cmd, cmd_seq)?;
         if no_ret {
-            self.msg_tx
-                .send((msg_id, data, None))
+            self.cmd_tx
+                .send(((CMD::IDENT, cmd_seq), data, None))
                 .map_err(|_| Error::Other("sending chan broken".into()))?;
             return Ok(None);
         }
 
         let (resp_tx, resp_rx) = bounded(1);
-        self.msg_tx
-            .send((msg_id, data, Some(resp_tx)))
+        self.cmd_tx
+            .send(((CMD::IDENT, cmd_seq), data, Some(resp_tx)))
             .map_err(|_| Error::Other("sending chan broken".into()))?;
 
         let resp_data = resp_rx
             .recv()
             .map_err(|_| Error::Other("response chan broken".into()))?;
 
-        <M as Message>::Response::de(&resp_data[..]).map(Some)
-    }
-
-    pub fn send_action<A>(&self, action: A) -> Result<()>
-    where
-        A: Action,
-        A::Message: Message<Ident = C::CmdIdent>,
-        A::Resp: Event<Ident = C::CmdIdent> + ActionResponse,
-    {
-        unimplemented!()
+        <CMD as Command>::Response::de(&resp_data[..]).map(Some)
     }
 }
 
@@ -120,7 +112,7 @@ where
 fn start_client_inner<T, C>(
     mut sender_trans: T,
     mut recv_trans: T,
-    msg_rx: Receiver<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    msg_rx: Receiver<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
     done: Receiver<()>,
 ) where
     T: Transport,
@@ -159,8 +151,8 @@ fn start_client_inner<T, C>(
 fn start_client_dispatch<T, C>(
     done: Receiver<()>,
     trans: &mut T,
-    msg_rx: Receiver<((C::CmdIdent, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
-    raw_tx: Receiver<((C::CmdIdent, C::Seq), C::Ctx, Vec<u8>)>,
+    msg_rx: Receiver<((C::Ident, C::Seq), Vec<u8>, Option<Sender<Vec<u8>>>)>,
+    raw_tx: Receiver<((C::Ident, C::Seq), C::Ctx, Vec<u8>)>,
     recv_loop_done: Receiver<()>,
 ) -> Result<()>
 where
@@ -211,7 +203,7 @@ where
 fn start_client_recv<T, C>(
     loop_done: Sender<()>,
     recv_trans: &mut T,
-    raw_tx: Sender<((C::CmdIdent, C::Seq), C::Ctx, Vec<u8>)>,
+    raw_tx: Sender<((C::Ident, C::Seq), C::Ctx, Vec<u8>)>,
 ) -> Result<()>
 where
     T: Transport,

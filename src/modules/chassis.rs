@@ -74,7 +74,7 @@ pub struct Chassis {
 impl Chassis {
     pub fn stick_overflow(&self, mode: ChassisStickOverlayMode) -> Result<()> {
         self.client
-            .send_msg(Some(self.host), ChassisStickOverlay { mode }, None)?;
+            .send_cmd(Some(self.host), ChassisStickOverlay { mode }, None)?;
         Ok(())
     }
 
@@ -85,7 +85,7 @@ impl Chassis {
         let w3_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(-w3)?;
         let w4_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(w4)?;
 
-        self.client.send_msg(
+        self.client.send_cmd(
             Some(self.host),
             SetWheelSpeed {
                 w1_spd,
@@ -104,7 +104,7 @@ impl Chassis {
         let y_spd = unit_convertor::CHASSIS_SPD_Y_CONVERTOR.val2proto(y)?;
         let z_spd = unit_convertor::CHASSIS_SPD_Z_CONVERTOR.val2proto(z)?;
 
-        self.client.send_msg(
+        self.client.send_cmd(
             Some(self.host),
             ChassisSpeedMode {
                 x_spd,
@@ -128,7 +128,7 @@ impl Chassis {
         }
 
         self.client
-            .send_msg(Some(self.host), ChassisPwmPercent { mask, pwms }, None)?;
+            .send_cmd(Some(self.host), ChassisPwmPercent { mask, pwms }, None)?;
 
         Ok(())
     }
@@ -144,7 +144,7 @@ impl Chassis {
         }
 
         self.client
-            .send_msg(Some(self.host), ChassisPwmFreq { mask, pwms }, None)?;
+            .send_cmd(Some(self.host), ChassisPwmFreq { mask, pwms }, None)?;
 
         Ok(())
     }
