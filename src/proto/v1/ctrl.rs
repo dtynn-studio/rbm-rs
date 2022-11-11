@@ -703,7 +703,7 @@ impl Deserialize for GimbalActionPush {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, 6);
 
-        let mut reader = Cursor::new(&buf[3..]);
+        let mut reader = Cursor::new(buf);
         let yaw = reader.read_i16::<LE>()?;
         let roll = reader.read_i16::<LE>()?;
         let pitch = reader.read_i16::<LE>()?;
@@ -1133,22 +1133,14 @@ impl_v1_event!(ServoCtrlPush, 0xb8);
 
 #[derive(Debug)]
 pub struct ServoCtrlPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub value: i32,
 }
 
 impl Deserialize for ServoCtrlPush {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, 7);
-        let value = Cursor::new(&buf[3..]).read_i32::<LE>()?;
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            value,
-        })
+        let value = Cursor::new(buf).read_i32::<LE>()?;
+        Ok(Self { value })
     }
 }
 
@@ -1203,9 +1195,6 @@ impl_v1_event!(RoboticArmMovePush, 0xb6);
 
 #[derive(Debug)]
 pub struct RoboticArmMovePush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub x: i32,
     pub y: i32,
     pub z: i32,
@@ -1213,19 +1202,12 @@ pub struct RoboticArmMovePush {
 
 impl Deserialize for RoboticArmMovePush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 15);
-        let mut reader = Cursor::new(&buf[3..]);
+        ensure_buf_size!(buf, 12);
+        let mut reader = Cursor::new(buf);
         let x = reader.read_i32::<LE>()?;
         let y = reader.read_i32::<LE>()?;
         let z = reader.read_i32::<LE>()?;
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            x,
-            y,
-            z,
-        })
+        Ok(Self { x, y, z })
     }
 }
 

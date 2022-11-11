@@ -6,10 +6,14 @@ use crate::{
 
 mod chassis;
 mod gimbal;
+mod robotic_arm;
+mod servo;
 mod sound;
 
 pub use chassis::*;
 pub use gimbal::*;
+pub use robotic_arm::*;
+pub use servo::*;
 pub use sound::*;
 
 #[derive(Debug)]
