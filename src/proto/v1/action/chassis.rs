@@ -13,29 +13,23 @@ use crate::{
     Result,
 };
 
-#[derive(Debug)]
-pub struct ChassisMoveAction {
+#[derive(Debug, Default)]
+pub struct ChassisMoveActionProgress {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub spd_xy: f32,
-    pub spd_z: f32,
-
-    pub status: V1ActionStatus,
 }
 
-impl Default for ChassisMoveAction {
-    fn default() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            spd_xy: 0.5,
-            spd_z: 30.0,
+#[derive(Debug)]
+pub struct ChassisMoveAction {
+    x: f32,
+    y: f32,
+    z: f32,
+    spd_xy: f32,
+    spd_z: f32,
 
-            status: Default::default(),
-        }
-    }
+    pub progress: ChassisMoveActionProgress,
+    pub status: V1ActionStatus,
 }
 
 impl ChassisMoveAction {
@@ -46,7 +40,8 @@ impl ChassisMoveAction {
             z,
             spd_xy,
             spd_z,
-            status: V1ActionStatus::default(),
+            progress: Default::default(),
+            status: Default::default(),
         }
     }
 }
@@ -89,9 +84,12 @@ impl Action for ChassisMoveAction {
             }
 
             Progress::Event(status, evt) => {
-                self.x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.proto2val(evt.pos_x)?;
-                self.y = unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.proto2val(evt.pos_y)?;
-                self.z = unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.proto2val(evt.pos_z)?;
+                self.progress.x =
+                    unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.proto2val(evt.pos_x)?;
+                self.progress.y =
+                    unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.proto2val(evt.pos_y)?;
+                self.progress.z =
+                    unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.proto2val(evt.pos_z)?;
                 self.status = status;
             }
         }

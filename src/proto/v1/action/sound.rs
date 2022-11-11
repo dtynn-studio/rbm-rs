@@ -53,8 +53,8 @@ pub enum RobotSound {
 
 #[derive(Debug)]
 pub struct PlaySoundAction {
-    pub sound_id: RobotSound,
-    pub play_times: u8,
+    sound_id: RobotSound,
+    play_times: u8,
 
     pub status: v1::V1ActionStatus,
 }

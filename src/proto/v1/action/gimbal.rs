@@ -11,6 +11,13 @@ use crate::{
     Result,
 };
 
+#[derive(Debug, Default)]
+pub struct GimbalMoveProgress {
+    pub yaw: f32,
+    pub roll: f32,
+    pub pitch: f32,
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 pub enum GimbalCoordinate {
@@ -24,15 +31,15 @@ pub enum GimbalCoordinate {
 
 #[derive(Debug)]
 pub struct GimbalMoveAction {
-    pub yaw: i16,   // unit: 0.1 degree
-    pub roll: i16,  // unit: 0.1 degree
-    pub pitch: i16, // unit: 0.1 degree
+    yaw: i16,   // unit: 0.1 degree
+    pitch: i16, // unit: 0.1 degree
 
-    pub pitch_speed: u16,
-    pub yaw_speed: u16,
+    pitch_speed: u16,
+    yaw_speed: u16,
 
-    pub coordinate: GimbalCoordinate,
+    coordinate: GimbalCoordinate,
 
+    pub progress: GimbalMoveProgress,
     pub status: V1ActionStatus,
 }
 
@@ -46,11 +53,11 @@ impl GimbalMoveAction {
     ) -> Self {
         GimbalMoveAction {
             yaw,
-            roll: 0,
             pitch,
             pitch_speed,
             yaw_speed,
             coordinate,
+            progress: Default::default(),
             status: Default::default(),
         }
     }
@@ -67,7 +74,7 @@ impl Action for GimbalMoveAction {
         let pitch_speed =
             unit_convertor::GIMBAL_PITCH_MOVE_SPEED_SET_CONVERTOR.val2proto(self.pitch_speed)?;
         let yaw_speed =
-            unit_convertor::GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR.val2proto(self.pitch_speed)?;
+            unit_convertor::GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR.val2proto(self.yaw_speed)?;
 
         Ok(GimbalRotate {
             pitch: self.pitch,
@@ -93,9 +100,9 @@ impl Action for GimbalMoveAction {
             }
 
             Progress::Event(status, evt) => {
-                self.yaw = evt.yaw;
-                self.pitch = evt.pitch;
-                self.roll = evt.roll;
+                self.progress.yaw = (evt.yaw as f32) / 10.0;
+                self.progress.pitch = (evt.pitch as f32) / 10.0;
+                self.progress.roll = (evt.roll as f32) / 10.0;
                 self.status = status;
             }
         }
