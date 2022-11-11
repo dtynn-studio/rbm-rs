@@ -2,8 +2,8 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{
-    action, Codec, CodecCtx, Deserialize, DussMBAck, DussMBType, Message, RM_SDK_FIRST_ACTION_ID,
-    RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
+    action, Codec, CodecCtx, Completed, Deserialize, DussMBAck, DussMBType, Message,
+    RM_SDK_FIRST_ACTION_ID, RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
 };
 use crate::{
     algo::{crc16_calc, crc8_calc},
@@ -61,6 +61,16 @@ pub struct V1ActionResponse {
     pub acception: Option<u8>,
 }
 
+impl Completed for V1ActionResponse {
+    fn is_completed(&self) -> bool {
+        action::State::from(V1ActionResponse {
+            retcode: self.retcode,
+            acception: self.acception,
+        })
+        .is_completed()
+    }
+}
+
 impl From<V1ActionResponse> for action::State {
     fn from(v: V1ActionResponse) -> Self {
         match (v.retcode, v.acception) {
@@ -104,8 +114,8 @@ impl Default for V1ActionStatus {
     }
 }
 
-impl V1ActionStatus {
-    pub fn is_completed(&self) -> bool {
+impl Completed for V1ActionStatus {
+    fn is_completed(&self) -> bool {
         self.percent == 100 || self.state.is_completed()
     }
 }
@@ -269,10 +279,26 @@ macro_rules! impl_v1_cmd {
 macro_rules! impl_v1_action_cmd {
     ($name:ident, $cid:literal) => {
         $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid);
+
+        impl $crate::proto::action::ActionCommand for $name {
+            type Seq = u16;
+
+            fn set_action_seq(&mut self, seq: u16) {
+                self.action_id = seq as u8;
+            }
+        }
     };
 
     ($name:ident, $cid:literal, $ctype:expr) => {
         $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid, $ctype);
+
+        impl $crate::proto::action::ActionCommand for $name {
+            type Seq = u16;
+
+            fn set_action_seq(&mut self, seq: u16) {
+                self.action_id = seq as u8;
+            }
+        }
     };
 }
 

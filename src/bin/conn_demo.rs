@@ -1,6 +1,8 @@
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
+use rbm_rs::proto::action::Action;
+use tracing::warn;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rbm_rs::{
@@ -77,8 +79,36 @@ pub fn main() {
         println!("resp: {:?}", resp);
     }
 
+    // move action
     {
-        let move_action = MoveAction::default();
-        let guarded = device_client.send_action(move_action).expect("send action");
+        let mut move_action = MoveAction {
+            x: 0.5,
+            y: 0.0,
+            z: 0.0,
+            spd_xy: 0.7,
+            spd_z: 30.0,
+            ..Default::default()
+        };
+
+        let progress_rx = device_client
+            .send_action(&move_action)
+            .expect("send action");
+
+        while let Some(prog) = progress_rx.next() {
+            warn!(?prog, "recv progress");
+            match move_action.apply_progress(prog) {
+                Ok(completed) => {
+                    warn!(completed, "move action progressed");
+                    if completed {
+                        break;
+                    }
+                }
+
+                Err(e) => {
+                    warn!("progress invalid: {:?}", e);
+                    break;
+                }
+            }
+        }
     }
 }

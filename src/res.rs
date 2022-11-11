@@ -49,7 +49,7 @@ macro_rules! ensure_buf_size {
 
 pub(crate) use ensure_buf_size;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct RetCode(pub u8);
 
 impl RetCode {

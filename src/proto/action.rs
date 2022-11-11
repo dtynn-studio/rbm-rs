@@ -47,16 +47,30 @@ impl State {
     }
 }
 
+pub trait ActionCommand: Command {
+    type Seq;
+    fn set_action_seq(&mut self, seq: Self::Seq);
+}
+
 pub trait Action {
-    type Cmd: Command;
-    type Event: Event;
-    type Status;
+    type Cmd: ActionCommand;
+    type Event: Event + std::fmt::Debug;
+    type Status: std::fmt::Debug;
 
     const RECEIVER: u8;
 
     fn pack_cmd(&self) -> Result<Self::Cmd>;
 
-    fn apply_cmd_resp(&mut self, resp: <Self::Cmd as Command>::Response) -> Result<bool>;
+    fn is_completed(&self) -> bool;
 
-    fn apply_event(&mut self, status: Self::Status, evt: Self::Event) -> Result<bool>;
+    fn apply_progress(
+        &mut self,
+        progress: Progress<<Self::Cmd as Command>::Response, Self::Status, Self::Event>,
+    ) -> Result<bool>;
+}
+
+#[derive(Debug)]
+pub enum Progress<R: std::fmt::Debug, S: std::fmt::Debug, E: std::fmt::Debug> {
+    Response(R),
+    Event(S, E),
 }

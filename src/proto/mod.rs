@@ -68,13 +68,17 @@ pub trait CodecCtx {
     fn is_ask(&self) -> bool;
 }
 
+pub trait Completed {
+    fn is_completed(&self) -> bool;
+}
+
 #[allow(clippy::type_complexity)]
 pub trait Codec: Default + Send + Sync {
-    type Ident: Eq + Hash + Send + std::fmt::Debug;
-    type Seq: Eq + Hash + Send + std::fmt::Debug + Copy;
+    type Ident: Eq + Hash + Send + Sync + std::fmt::Debug + Copy;
+    type Seq: Eq + Hash + Send + Sync + std::fmt::Debug + Copy;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
-    type ActionResponse: Deserialize + Send + std::fmt::Debug;
-    type ActionStatus: Send + std::fmt::Debug;
+    type ActionResponse: Deserialize + Send + std::fmt::Debug + Completed;
+    type ActionStatus: Send + std::fmt::Debug + Completed;
 
     fn next_cmd_seq(&self) -> Self::Seq;
 
