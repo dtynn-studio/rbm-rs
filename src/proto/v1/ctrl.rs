@@ -11,7 +11,7 @@ use crate::{
     ensure_buf_size, ensure_ok,
     proto::{
         host2byte, impl_empty_ser,
-        v1::{impl_v1_action_cmd, impl_v1_cmd, impl_v1_event, ACTION_STATUS_SIZE},
+        v1::{impl_v1_action_cmd, impl_v1_cmd, impl_v1_event},
         Deserialize, DussMBType, RetOK, Serialize,
     },
     Result,
@@ -836,7 +836,7 @@ pub struct PositionPush {
 
 impl Deserialize for PositionPush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 9 - ACTION_STATUS_SIZE);
+        ensure_buf_size!(buf, 6);
         let mut reader = Cursor::new(buf);
         let pos_x = reader.read_i16::<LE>()?;
         let pos_y = reader.read_i16::<LE>()?;

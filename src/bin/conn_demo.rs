@@ -7,7 +7,6 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rbm_rs::{
     conn::{Client, Udp},
-    modules::{chassis::MoveAction, sound},
     proto::{host2byte, v1},
 };
 
@@ -114,7 +113,8 @@ pub fn main() {
 
     // play sound action
     {
-        let mut play_sound = sound::PlaySoundAction::new(sound::RobotSound::SOUND_ID_RECOGNIZED, 3);
+        let mut play_sound =
+            v1::action::PlaySoundAction::new(v1::action::RobotSound::SOUND_ID_RECOGNIZED, 3);
 
         let progress_rx = device_client.send_action(&play_sound).expect("send action");
 

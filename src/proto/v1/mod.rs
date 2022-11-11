@@ -2,14 +2,15 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{
-    action, Codec, CodecCtx, Completed, Deserialize, DussMBAck, DussMBType, Message,
-    RM_SDK_FIRST_ACTION_ID, RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
+    Codec, CodecCtx, DussMBAck, DussMBType, Message, RM_SDK_FIRST_ACTION_ID, RM_SDK_FIRST_SEQ_ID,
+    RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
 };
 use crate::{
     algo::{crc16_calc, crc8_calc},
-    ensure_buf_size, Error, Result, RetCode,
+    ensure_buf_size, Error, Result,
 };
 
+pub mod action;
 pub mod camera;
 pub mod ctrl;
 pub mod gimbal;
@@ -17,6 +18,8 @@ pub mod gripper;
 pub mod normal;
 pub mod subscribe;
 pub mod vision;
+
+pub use action::{V1ActionResponse, V1ActionStatus};
 
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
@@ -52,73 +55,6 @@ impl Default for V1 {
             cmd_seq: AtomicU64::new(0),
             action_seq: AtomicU64::new(0),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct V1ActionResponse {
-    pub retcode: RetCode,
-    pub acception: Option<u8>,
-}
-
-impl Completed for V1ActionResponse {
-    fn is_completed(&self) -> bool {
-        action::State::from(V1ActionResponse {
-            retcode: self.retcode,
-            acception: self.acception,
-        })
-        .is_completed()
-    }
-}
-
-impl From<V1ActionResponse> for action::State {
-    fn from(v: V1ActionResponse) -> Self {
-        match (v.retcode, v.acception) {
-            (RetCode(0), Some(0)) => action::State::Started,
-            (RetCode(0), Some(1)) => action::State::Rejected,
-            (RetCode(0), Some(2)) => action::State::Succeeded,
-            _ => action::State::Failed,
-        }
-    }
-}
-
-impl Deserialize for V1ActionResponse {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 1);
-        let retcode: RetCode = buf[0].into();
-        let acception = if retcode.is_ok() {
-            ensure_buf_size!(buf, 2);
-            Some(buf[1])
-        } else {
-            None
-        };
-
-        Ok(Self { retcode, acception })
-    }
-}
-
-const ACTION_STATUS_SIZE: usize = 3;
-
-#[derive(Debug)]
-pub struct V1ActionStatus {
-    pub percent: u8,
-    pub error_reason: u8,
-    pub state: action::State,
-}
-
-impl Default for V1ActionStatus {
-    fn default() -> Self {
-        Self {
-            percent: 0,
-            error_reason: 0,
-            state: action::State::Idle,
-        }
-    }
-}
-
-impl Completed for V1ActionStatus {
-    fn is_completed(&self) -> bool {
-        self.percent == 100 || self.state.is_completed()
     }
 }
 
@@ -229,7 +165,7 @@ impl Codec for V1 {
     }
 
     fn unpack_action_status(buf: &[u8]) -> Result<(Self::Seq, Self::ActionStatus, usize)> {
-        ensure_buf_size!(buf, ACTION_STATUS_SIZE);
+        ensure_buf_size!(buf, action::ACTION_STATUS_SIZE);
         Ok((
             buf[0] as u16,
             V1ActionStatus {
@@ -237,7 +173,7 @@ impl Codec for V1 {
                 error_reason: buf[2] >> 2 & 0x03,
                 state: (buf[2] & 0x03).try_into()?,
             },
-            ACTION_STATUS_SIZE,
+            action::ACTION_STATUS_SIZE,
         ))
     }
 }
