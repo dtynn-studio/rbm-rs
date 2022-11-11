@@ -102,6 +102,7 @@ const ACTION_STATUS_SIZE: usize = 3;
 #[derive(Debug)]
 pub struct V1ActionStatus {
     pub percent: u8,
+    pub error_reason: u8,
     pub state: action::State,
 }
 
@@ -109,6 +110,7 @@ impl Default for V1ActionStatus {
     fn default() -> Self {
         Self {
             percent: 0,
+            error_reason: 0,
             state: action::State::Idle,
         }
     }
@@ -232,7 +234,8 @@ impl Codec for V1 {
             buf[0] as u16,
             V1ActionStatus {
                 percent: buf[1],
-                state: buf[2].try_into()?,
+                error_reason: buf[2] >> 2 & 0x03,
+                state: (buf[2] & 0x03).try_into()?,
             },
             ACTION_STATUS_SIZE,
         ))

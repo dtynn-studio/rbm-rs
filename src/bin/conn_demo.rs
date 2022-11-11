@@ -7,7 +7,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rbm_rs::{
     conn::{Client, Udp},
-    modules::chassis::MoveAction,
+    modules::{chassis::MoveAction, sound},
     proto::{host2byte, v1},
 };
 
@@ -80,25 +80,49 @@ pub fn main() {
     }
 
     // move action
-    {
-        let mut move_action = MoveAction {
-            x: 0.5,
-            y: 0.0,
-            z: 0.0,
-            spd_xy: 0.7,
-            spd_z: 30.0,
-            ..Default::default()
-        };
+    // {
+    //     let mut move_action = MoveAction {
+    //         x: 0.5,
+    //         y: 0.0,
+    //         z: 0.0,
+    //         spd_xy: 0.7,
+    //         spd_z: 30.0,
+    //         ..Default::default()
+    //     };
 
-        let progress_rx = device_client
-            .send_action(&move_action)
-            .expect("send action");
+    //     let progress_rx = device_client
+    //         .send_action(&move_action)
+    //         .expect("send action");
+
+    //     while let Some(prog) = progress_rx.next() {
+    //         warn!(?prog, "recv progress");
+    //         match move_action.apply_progress(prog) {
+    //             Ok(completed) => {
+    //                 warn!(completed, "move action progressed");
+    //                 if completed {
+    //                     break;
+    //                 }
+    //             }
+
+    //             Err(e) => {
+    //                 warn!("progress invalid: {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // play sound action
+    {
+        let mut play_sound = sound::PlaySoundAction::new(sound::RobotSound::SOUND_ID_RECOGNIZED, 3);
+
+        let progress_rx = device_client.send_action(&play_sound).expect("send action");
 
         while let Some(prog) = progress_rx.next() {
             warn!(?prog, "recv progress");
-            match move_action.apply_progress(prog) {
+            match play_sound.apply_progress(prog) {
                 Ok(completed) => {
-                    warn!(completed, "move action progressed");
+                    warn!(completed, "sound action progressed");
                     if completed {
                         break;
                     }

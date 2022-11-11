@@ -590,26 +590,18 @@ impl_v1_event!(SoundPushEvent, 0xb4);
 
 #[derive(Debug, Default)]
 pub struct SoundPushEvent {
-    pub action_id: u8,
-    pub percent: u8,
     pub reserved: u8,
-    pub error_reason: u8,
-    pub action_state: u8,
     pub sound_id: u32,
 }
 
 impl Deserialize for SoundPushEvent {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 7);
+        ensure_buf_size!(buf, 4);
 
-        let sound_id = Cursor::new(&buf[3..7]).read_u32::<LE>()?;
+        let sound_id = Cursor::new(buf).read_u32::<LE>()?;
 
         Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
             reserved: 0,
-            error_reason: buf[2] >> 2 & 0x03,
-            action_state: buf[2] & 0x03,
             sound_id,
         })
     }
