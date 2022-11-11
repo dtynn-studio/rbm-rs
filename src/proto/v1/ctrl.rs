@@ -622,6 +622,8 @@ pub enum ActionPushFreq {
     TenHz = 2,
 }
 
+impl_v1_action_cmd!(GimbalRotate, 0xb0);
+
 #[derive(Debug)]
 pub struct GimbalRotate {
     pub action_id: u8,
@@ -639,8 +641,6 @@ pub struct GimbalRotate {
     pub roll_speed: u16,
     pub pitch_speed: u16,
 }
-
-impl_v1_action_cmd!(GimbalRotate, 0xb0);
 
 impl Default for GimbalRotate {
     fn default() -> Self {
@@ -694,9 +694,6 @@ impl_v1_event!(GimbalActionPush, 0xb1);
 
 #[derive(Debug, Default)]
 pub struct GimbalActionPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub yaw: i16,
     pub roll: i16,
     pub pitch: i16,
@@ -704,21 +701,14 @@ pub struct GimbalActionPush {
 
 impl Deserialize for GimbalActionPush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 9);
+        ensure_buf_size!(buf, 6);
 
         let mut reader = Cursor::new(&buf[3..]);
         let yaw = reader.read_i16::<LE>()?;
         let roll = reader.read_i16::<LE>()?;
         let pitch = reader.read_i16::<LE>()?;
 
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            yaw,
-            roll,
-            pitch,
-        })
+        Ok(Self { yaw, roll, pitch })
     }
 }
 

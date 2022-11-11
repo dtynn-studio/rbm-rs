@@ -5,9 +5,11 @@ use crate::{
 };
 
 mod chassis;
+mod gimbal;
 mod sound;
 
 pub use chassis::*;
+pub use gimbal::*;
 pub use sound::*;
 
 #[derive(Debug)]

@@ -107,6 +107,42 @@ pub const PWM_FREQ_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
     unit: "Hz",
 };
 
+pub const GIMBAL_PITCH_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-55.0),
+    end: Some(55.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_YAW_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-500.0),
+    end: Some(500.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_PITCH_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
+    start: Some(0),
+    end: Some(540),
+    decimal: 0,
+    scale: 1,
+    delta: 0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
+    start: Some(0),
+    end: Some(540),
+    decimal: 0,
+    scale: 1,
+    delta: 0,
+    unit: "°/s",
+};
+
 pub struct UnitConvertor<V> {
     start: Option<V>,
     end: Option<V>,
