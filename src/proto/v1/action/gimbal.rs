@@ -34,8 +34,8 @@ pub struct GimbalMoveAction {
     yaw: i16,   // unit: 0.1 degree
     pitch: i16, // unit: 0.1 degree
 
-    pitch_speed: u16,
     yaw_speed: u16,
+    pitch_speed: u16,
 
     coordinate: GimbalCoordinate,
 
@@ -47,15 +47,15 @@ impl GimbalMoveAction {
     pub fn new(
         yaw: i16,
         pitch: i16,
-        pitch_speed: u16,
         yaw_speed: u16,
+        pitch_speed: u16,
         coordinate: GimbalCoordinate,
     ) -> Self {
         GimbalMoveAction {
             yaw,
             pitch,
-            pitch_speed,
             yaw_speed,
+            pitch_speed,
             coordinate,
             progress: Default::default(),
             status: Default::default(),
