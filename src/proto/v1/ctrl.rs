@@ -14,7 +14,7 @@ use crate::{
         v1::{impl_v1_action_cmd, impl_v1_cmd, impl_v1_event},
         Deserialize, DussMBType, RetOK, Serialize,
     },
-    Result,
+    Error, Result,
 };
 
 const CMD_SET: u8 = 0x3f;
@@ -308,12 +308,30 @@ impl Serialize for SetSystemLed {
     }
 }
 
-#[derive(Debug)]
-pub struct RobotMode(pub u8);
+impl_v1_cmd!(SetRobotMode, RetOK, 0x46);
 
-impl From<u8> for RobotMode {
-    fn from(v: u8) -> Self {
-        Self(v)
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum RobotMode {
+    Free = 0,
+    GimbalLead = 1,
+    ChassisLead = 2,
+}
+
+impl TryFrom<u8> for RobotMode {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => RobotMode::Free,
+            1 => RobotMode::GimbalLead,
+            2 => RobotMode::ChassisLead,
+            other => {
+                return Err(Error::InvalidData(
+                    format!("unknown robot mode {}", other).into(),
+                ))
+            }
+        })
     }
 }
 
@@ -321,18 +339,17 @@ impl Deserialize for RobotMode {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_ok!(buf);
         ensure_buf_size!(buf, 2);
-        Ok(buf[1].into())
+
+        buf[1].try_into()
     }
 }
-
-impl_v1_cmd!(SetRobotMode, RetOK, 0x46);
 
 #[derive(Debug)]
 pub struct SetRobotMode(pub RobotMode);
 
 impl Default for SetRobotMode {
     fn default() -> Self {
-        Self(1.into())
+        Self(RobotMode::GimbalLead)
     }
 }
 
@@ -340,7 +357,7 @@ impl Serialize for SetRobotMode {
     const SIZE: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.0 .0).map_err(From::from)
+        w.write_u8(self.0 as u8).map_err(From::from)
     }
 }
 
