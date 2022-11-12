@@ -1,6 +1,8 @@
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr};
 
+use rbm_rs::proto::action::Action;
+use tracing::warn;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rbm_rs::{
@@ -42,7 +44,7 @@ pub fn main() {
         };
 
         let resp = proxy_client
-            .send_msg(None, msg, None)
+            .send_cmd(None, msg, None)
             .expect("set sdk conn");
         println!("resp: {:?}", resp);
     }
@@ -56,7 +58,7 @@ pub fn main() {
     {
         println!("enable sdk");
         let msg: v1::ctrl::SetSdkMode = true.into();
-        let resp = device_client.send_msg(None, msg, None);
+        let resp = device_client.send_cmd(None, msg, None);
         println!("resp: {:?}", resp);
     }
 
@@ -64,7 +66,7 @@ pub fn main() {
     {
         println!("get product ver");
         let msg = v1::normal::GetProductVersion::default();
-        let resp = device_client.send_msg(Some(host2byte(8, 1)), msg, None);
+        let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, None);
         println!("resp: {:?}", resp);
     }
 
@@ -72,7 +74,124 @@ pub fn main() {
     {
         println!("get sn");
         let msg = v1::normal::GetSN::default();
-        let resp = device_client.send_msg(Some(host2byte(8, 1)), msg, None);
+        let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, None);
         println!("resp: {:?}", resp);
     }
+
+    // set robot mode
+    {
+        println!("set robot mode");
+        let msg = v1::ctrl::SetRobotMode(v1::ctrl::RobotMode::Free);
+        let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, None);
+        println!("resp: {:?}", resp);
+    }
+
+    // move action
+    {
+        let mut move_action = v1::action::ChassisMoveAction::new(0.5, 0.0, 0.0, 0.7, 30.0);
+
+        let progress_rx = device_client
+            .send_action(&move_action)
+            .expect("send action");
+
+        while let Some(prog) = progress_rx.next() {
+            warn!(?prog, "recv progress");
+            match move_action.apply_progress(prog) {
+                Ok(completed) => {
+                    warn!(completed, "move action progressed");
+                    if completed {
+                        break;
+                    }
+                }
+
+                Err(e) => {
+                    warn!("progress invalid: {:?}", e);
+                    break;
+                }
+            }
+        }
+    }
+
+    // play sound action
+    // {
+    //     let mut play_sound =
+    //         v1::action::PlaySoundAction::new(v1::action::RobotSound::SOUND_ID_RECOGNIZED, 3);
+
+    //     let progress_rx = device_client.send_action(&play_sound).expect("send action");
+
+    //     while let Some(prog) = progress_rx.next() {
+    //         warn!(?prog, "recv progress");
+    //         match play_sound.apply_progress(prog) {
+    //             Ok(completed) => {
+    //                 warn!(completed, "sound action progressed");
+    //                 if completed {
+    //                     break;
+    //                 }
+    //             }
+
+    //             Err(e) => {
+    //                 warn!("progress invalid: {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // gimbal move action
+    // {
+    //     let mut gimbal_move = v1::action::GimbalMoveAction::new(
+    //         900,
+    //         300,
+    //         100,
+    //         50,
+    //         v1::action::GimbalCoordinate::YCPN,
+    //     );
+
+    //     let progress_rx = device_client
+    //         .send_action(&gimbal_move)
+    //         .expect("send action");
+
+    //     while let Some(prog) = progress_rx.next() {
+    //         warn!(?prog, "recv progress");
+    //         match gimbal_move.apply_progress(prog) {
+    //             Ok(completed) => {
+    //                 warn!(completed, "gimbal move action progressed");
+    //                 if completed {
+    //                     break;
+    //                 }
+    //             }
+
+    //             Err(e) => {
+    //                 warn!("progress invalid: {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // gimbal recenter
+    // {
+    //     let mut gimbal_recenter = v1::action::GimbalRecenterAction::new(60, 60);
+
+    //     let progress_rx = device_client
+    //         .send_action(&gimbal_recenter)
+    //         .expect("send action");
+
+    //     while let Some(prog) = progress_rx.next() {
+    //         warn!(?prog, "recv progress");
+    //         match gimbal_recenter.apply_progress(prog) {
+    //             Ok(completed) => {
+    //                 warn!(completed, "gimbal move action progressed");
+    //                 if completed {
+    //                     break;
+    //                 }
+    //             }
+
+    //             Err(e) => {
+    //                 warn!("progress invalid: {:?}", e);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
 }

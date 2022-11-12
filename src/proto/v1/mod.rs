@@ -2,13 +2,15 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{
-    Codec, CodecCtx, DussMBAck, DussMBType, Message, RM_SDK_FIRST_SEQ_ID, RM_SDK_LAST_SEQ_ID,
+    Codec, CodecCtx, DussMBAck, DussMBType, Message, RM_SDK_FIRST_ACTION_ID, RM_SDK_FIRST_SEQ_ID,
+    RM_SDK_LAST_ACTION_ID, RM_SDK_LAST_SEQ_ID,
 };
 use crate::{
     algo::{crc16_calc, crc8_calc},
     ensure_buf_size, Error, Result,
 };
 
+pub mod action;
 pub mod camera;
 pub mod ctrl;
 pub mod gimbal;
@@ -17,10 +19,12 @@ pub mod normal;
 pub mod subscribe;
 pub mod vision;
 
+pub use action::{V1ActionResponse, V1ActionStatus};
+
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
 
-pub type V1CmdIdent = (u8, u8);
+pub type V1Ident = (u8, u8);
 
 #[derive(Debug, Clone, Copy)]
 pub struct V1Ctx {
@@ -40,22 +44,41 @@ impl CodecCtx for V1Ctx {
     }
 }
 
-pub struct V1(AtomicU64);
+pub struct V1 {
+    cmd_seq: AtomicU64,
+    action_seq: AtomicU64,
+}
 
 impl Default for V1 {
     fn default() -> Self {
-        V1(AtomicU64::new(0))
+        V1 {
+            cmd_seq: AtomicU64::new(0),
+            action_seq: AtomicU64::new(0),
+        }
     }
 }
 
-const SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
+const CMD_SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
+const ACTION_SEQ_MOD: u64 = (RM_SDK_LAST_ACTION_ID - RM_SDK_FIRST_ACTION_ID) as u64;
 
 impl Codec for V1 {
-    type CmdIdent = V1CmdIdent;
+    type Ident = V1Ident;
     type Seq = u16;
     type Ctx = V1Ctx;
+    type ActionResponse = V1ActionResponse;
+    type ActionStatus = V1ActionStatus;
 
-    fn ctx<M: Message<Ident = Self::CmdIdent>>(
+    fn next_cmd_seq(&self) -> Self::Seq {
+        let next = self.cmd_seq.fetch_add(1, Ordering::Relaxed);
+        RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16
+    }
+
+    fn next_action_seq(&self) -> Self::Seq {
+        let next = self.action_seq.fetch_add(1, Ordering::Relaxed);
+        RM_SDK_FIRST_ACTION_ID + (next % ACTION_SEQ_MOD) as u16
+    }
+
+    fn ctx<M: Message<Ident = Self::Ident>>(
         sender: u8,
         receiver: u8,
         need_ack: Option<DussMBAck>,
@@ -74,17 +97,15 @@ impl Codec for V1 {
         }
     }
 
-    fn pack_msg<M: Message<Ident = Self::CmdIdent>>(
+    fn pack_msg<M: Message<Ident = Self::Ident>>(
         &self,
         ctx: Self::Ctx,
         msg: M,
-    ) -> Result<((Self::CmdIdent, Self::Seq), Vec<u8>)> {
-        let next = self.0.fetch_add(1, Ordering::Relaxed);
-        let seq = RM_SDK_FIRST_SEQ_ID + (next % SEQ_MOD) as u16 + 1;
-
+        seq: Self::Seq,
+    ) -> Result<Vec<u8>> {
         let id = (M::IDENT, seq);
-
         let size = MSG_HEADER_SIZE + msg.size();
+
         let mut buf = vec![0u8; size];
         buf[0] = MSG_MAGIN_NUM;
         buf[1] = (size & 0xff) as u8;
@@ -111,10 +132,10 @@ impl Codec for V1 {
         let crc_msg = crc16_calc(&buf[..size - 2], None).to_le_bytes();
         buf[size - 2] = crc_msg[0];
         buf[size - 1] = crc_msg[1];
-        Ok((id, buf))
+        Ok(buf)
     }
 
-    fn unpack_raw(buf: &[u8]) -> Result<((Self::CmdIdent, Self::Seq), Self::Ctx, &[u8], usize)> {
+    fn unpack_raw(buf: &[u8]) -> Result<((Self::Ident, Self::Seq), Self::Ctx, &[u8], usize)> {
         ensure_buf_size!(buf, MSG_HEADER_SIZE, "raw msg header");
         if buf[0] != MSG_MAGIN_NUM {
             return Err(Error::InvalidData("invalid magic number".into()));
@@ -142,25 +163,80 @@ impl Codec for V1 {
             size,
         ))
     }
+
+    fn unpack_action_status(buf: &[u8]) -> Result<(Self::Seq, Self::ActionStatus, usize)> {
+        ensure_buf_size!(buf, action::ACTION_STATUS_SIZE);
+        Ok((
+            buf[0] as u16,
+            V1ActionStatus {
+                percent: buf[1],
+                error_reason: buf[2] >> 2 & 0x03,
+                state: (buf[2] & 0x03).try_into()?,
+            },
+            action::ACTION_STATUS_SIZE,
+        ))
+    }
+}
+
+macro_rules! impl_v1_msg {
+    ($name:ident, $cid:literal) => {
+        impl $crate::proto::Message for $name {
+            type Ident = $crate::proto::v1::V1Ident;
+
+            const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
+        }
+    };
+
+    ($name:ident, $cid:literal, $ctype:expr) => {
+        impl $crate::proto::Message for $name {
+            type Ident = $crate::proto::v1::V1Ident;
+
+            const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
+            const CMD_TYPE: $crate::proto::DussMBType = $ctype;
+        }
+    };
 }
 
 macro_rules! impl_v1_cmd {
     ($name:ident, $resp:ty, $cid:literal) => {
-        impl $crate::proto::Message for $name {
-            type Ident = $crate::proto::v1::V1CmdIdent;
-            type Response = $resp;
+        $crate::proto::v1::impl_v1_msg!($name, $cid);
 
-            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
+        impl $crate::proto::cmd::Command for $name {
+            type Response = $resp;
         }
     };
 
     ($name:ident, $resp:ty, $cid:literal, $ctype:expr) => {
-        impl $crate::proto::Message for $name {
-            type Ident = $crate::proto::v1::V1CmdIdent;
-            type Response = $resp;
+        $crate::proto::v1::impl_v1_msg!($name, $cid, $ctype);
 
-            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
-            const CMD_TYPE: $crate::proto::DussMBType = $ctype;
+        impl $crate::proto::cmd::Command for $name {
+            type Response = $resp;
+        }
+    };
+}
+
+macro_rules! impl_v1_action_cmd {
+    ($name:ident, $cid:literal) => {
+        $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid);
+
+        impl $crate::proto::action::ActionCommand for $name {
+            type Seq = u16;
+
+            fn set_action_seq(&mut self, seq: u16) {
+                self.action_id = seq as u8;
+            }
+        }
+    };
+
+    ($name:ident, $cid:literal, $ctype:expr) => {
+        $crate::proto::v1::impl_v1_cmd!($name, $crate::proto::v1::V1ActionResponse, $cid, $ctype);
+
+        impl $crate::proto::action::ActionCommand for $name {
+            type Seq = u16;
+
+            fn set_action_seq(&mut self, seq: u16) {
+                self.action_id = seq as u8;
+            }
         }
     };
 }
@@ -168,12 +244,14 @@ macro_rules! impl_v1_cmd {
 macro_rules! impl_v1_event {
     ($name:ident, $cid:literal) => {
         impl $crate::proto::Event for $name {
-            type Ident = $crate::proto::v1::V1CmdIdent;
+            type Ident = $crate::proto::v1::V1Ident;
 
-            const IDENT: $crate::proto::v1::V1CmdIdent = (CMD_SET, $cid);
+            const IDENT: $crate::proto::v1::V1Ident = (CMD_SET, $cid);
         }
     };
 }
 
+pub(self) use impl_v1_action_cmd;
 pub(self) use impl_v1_cmd;
 pub(self) use impl_v1_event;
+pub(self) use impl_v1_msg;

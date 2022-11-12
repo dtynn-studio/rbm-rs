@@ -5,6 +5,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use crate::{
     ensure_buf_size, ensure_ok,
     proto::{impl_empty_ser, v1::impl_v1_cmd, Deserialize, RetOK, Serialize},
+    util::decimal::round,
     Error, Result,
 };
 
@@ -134,11 +135,6 @@ pub struct VisionDetectInfo {
     pub status: u8,
     pub errcode: u16,
     pub rect_info: VisionRectInfo,
-}
-
-fn round(v: f32, precision: i32) -> f32 {
-    let prec = 10f32.powi(precision);
-    (v * prec).round() / prec
 }
 
 impl Deserialize for VisionDetectInfo {

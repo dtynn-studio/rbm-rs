@@ -11,10 +11,10 @@ use crate::{
     ensure_buf_size, ensure_ok,
     proto::{
         host2byte, impl_empty_ser,
-        v1::{impl_v1_cmd, impl_v1_event},
+        v1::{impl_v1_action_cmd, impl_v1_cmd, impl_v1_event},
         Deserialize, DussMBType, RetOK, Serialize,
     },
-    Result,
+    Error, Result,
 };
 
 const CMD_SET: u8 = 0x3f;
@@ -114,16 +114,25 @@ impl Serialize for SetSdkMode {
 
 impl_v1_cmd!(ChassisStickOverlay, RetOK, 0x28);
 
-#[derive(Debug, Default)]
+// see https://github.com/dji-sdk/RoboMaster-SDK/blob/8f301fd1bd3038f51c403614c52abbf9e9f5103c/src/robomaster/chassis.py#L353-L355
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum ChassisStickOverlayMode {
+    Disabled = 0,
+    ChassisMode = 1,
+    GimbalMode = 2,
+}
+
+#[derive(Debug)]
 pub struct ChassisStickOverlay {
-    pub mode: u8,
+    pub mode: ChassisStickOverlayMode,
 }
 
 impl Serialize for ChassisStickOverlay {
     const SIZE: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_all(&[self.mode]).map_err(From::from)
+        w.write_all(&[self.mode as u8]).map_err(From::from)
     }
 }
 
@@ -299,12 +308,30 @@ impl Serialize for SetSystemLed {
     }
 }
 
-#[derive(Debug)]
-pub struct RobotMode(pub u8);
+impl_v1_cmd!(SetRobotMode, RetOK, 0x46);
 
-impl From<u8> for RobotMode {
-    fn from(v: u8) -> Self {
-        Self(v)
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum RobotMode {
+    Free = 0,
+    GimbalLead = 1,
+    ChassisLead = 2,
+}
+
+impl TryFrom<u8> for RobotMode {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => RobotMode::Free,
+            1 => RobotMode::GimbalLead,
+            2 => RobotMode::ChassisLead,
+            other => {
+                return Err(Error::InvalidData(
+                    format!("unknown robot mode {}", other).into(),
+                ))
+            }
+        })
     }
 }
 
@@ -312,18 +339,17 @@ impl Deserialize for RobotMode {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_ok!(buf);
         ensure_buf_size!(buf, 2);
-        Ok(buf[1].into())
+
+        buf[1].try_into()
     }
 }
-
-impl_v1_cmd!(SetRobotMode, RetOK, 0x46);
 
 #[derive(Debug)]
 pub struct SetRobotMode(pub RobotMode);
 
 impl Default for SetRobotMode {
     fn default() -> Self {
-        Self(1.into())
+        Self(RobotMode::GimbalLead)
     }
 }
 
@@ -331,7 +357,7 @@ impl Serialize for SetRobotMode {
     const SIZE: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.0 .0).map_err(From::from)
+        w.write_u8(self.0 as u8).map_err(From::from)
     }
 }
 
@@ -527,7 +553,7 @@ impl Deserialize for UwbModuleEvent {
     }
 }
 
-impl_v1_cmd!(PlaySound, ActionAccepted, 0xb3);
+impl_v1_action_cmd!(PlaySound, 0xb3);
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -536,17 +562,6 @@ pub enum PlaySoundCtrl {
     Interupt = 1,
     Mixed = 2,
     Ignored = 3,
-}
-
-#[derive(Debug)]
-pub struct ActionAccepted(pub u8);
-
-impl Deserialize for ActionAccepted {
-    fn de(buf: &[u8]) -> Result<Self> {
-        ensure_ok!(buf);
-        ensure_buf_size!(buf, 2);
-        Ok(ActionAccepted(buf[1]))
-    }
 }
 
 #[derive(Debug)]
@@ -592,26 +607,18 @@ impl_v1_event!(SoundPushEvent, 0xb4);
 
 #[derive(Debug, Default)]
 pub struct SoundPushEvent {
-    pub action_id: u8,
-    pub percent: u8,
     pub reserved: u8,
-    pub error_reason: u8,
-    pub action_state: u8,
     pub sound_id: u32,
 }
 
 impl Deserialize for SoundPushEvent {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 7);
+        ensure_buf_size!(buf, 4);
 
-        let sound_id = Cursor::new(&buf[3..7]).read_u32::<LE>()?;
+        let sound_id = Cursor::new(buf).read_u32::<LE>()?;
 
         Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
             reserved: 0,
-            error_reason: buf[2] >> 2 & 0x03,
-            action_state: buf[2] & 0x03,
             sound_id,
         })
     }
@@ -632,6 +639,8 @@ pub enum ActionPushFreq {
     TenHz = 2,
 }
 
+impl_v1_action_cmd!(GimbalRotate, 0xb0);
+
 #[derive(Debug)]
 pub struct GimbalRotate {
     pub action_id: u8,
@@ -649,8 +658,6 @@ pub struct GimbalRotate {
     pub roll_speed: u16,
     pub pitch_speed: u16,
 }
-
-impl_v1_cmd!(GimbalRotate, ActionAccepted, 0xb0);
 
 impl Default for GimbalRotate {
     fn default() -> Self {
@@ -704,9 +711,6 @@ impl_v1_event!(GimbalActionPush, 0xb1);
 
 #[derive(Debug, Default)]
 pub struct GimbalActionPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub yaw: i16,
     pub roll: i16,
     pub pitch: i16,
@@ -714,25 +718,18 @@ pub struct GimbalActionPush {
 
 impl Deserialize for GimbalActionPush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 9);
+        ensure_buf_size!(buf, 6);
 
-        let mut reader = Cursor::new(&buf[3..]);
+        let mut reader = Cursor::new(buf);
         let yaw = reader.read_i16::<LE>()?;
         let roll = reader.read_i16::<LE>()?;
         let pitch = reader.read_i16::<LE>()?;
 
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            yaw,
-            roll,
-            pitch,
-        })
+        Ok(Self { yaw, roll, pitch })
     }
 }
 
-impl_v1_cmd!(GimbalRecenter, ActionAccepted, 0xb2);
+impl_v1_action_cmd!(GimbalRecenter, 0xb2);
 
 #[derive(Debug)]
 pub struct GimbalRecenter {
@@ -781,7 +778,7 @@ impl Serialize for GimbalRecenter {
     }
 }
 
-impl_v1_cmd!(PositionMove, ActionAccepted, 0x25);
+impl_v1_action_cmd!(PositionMove, 0x25);
 
 #[derive(Debug)]
 pub struct PositionMove {
@@ -837,11 +834,8 @@ impl Serialize for PositionMove {
 
 impl_v1_event!(PositionPush, 0x2a);
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PositionPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub pos_x: i16,
     pub pos_y: i16,
     pub pos_z: i16,
@@ -849,16 +843,13 @@ pub struct PositionPush {
 
 impl Deserialize for PositionPush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 9);
-        let mut reader = Cursor::new(&buf[3..]);
+        ensure_buf_size!(buf, 6);
+        let mut reader = Cursor::new(buf);
         let pos_x = reader.read_i16::<LE>()?;
         let pos_y = reader.read_i16::<LE>()?;
         let pos_z = reader.read_i16::<LE>()?;
 
         Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2],
             pos_x,
             pos_y,
             pos_z,
@@ -928,12 +919,7 @@ impl_v1_cmd!(ChassisPwmPercent, RetOK, 0x3c);
 #[derive(Debug, Default)]
 pub struct ChassisPwmPercent {
     pub mask: u8,
-    pub pwm1: u16,
-    pub pwm2: u16,
-    pub pwm3: u16,
-    pub pwm4: u16,
-    pub pwm5: u16,
-    pub pwm6: u16,
+    pub pwms: [u16; 6],
 }
 
 impl Serialize for ChassisPwmPercent {
@@ -941,12 +927,9 @@ impl Serialize for ChassisPwmPercent {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.mask)?;
-        w.write_u16::<LE>(self.pwm1)?;
-        w.write_u16::<LE>(self.pwm2)?;
-        w.write_u16::<LE>(self.pwm3)?;
-        w.write_u16::<LE>(self.pwm4)?;
-        w.write_u16::<LE>(self.pwm5)?;
-        w.write_u16::<LE>(self.pwm6)?;
+        for v in self.pwms {
+            w.write_u16::<LE>(v)?;
+        }
         Ok(())
     }
 }
@@ -956,12 +939,7 @@ impl_v1_cmd!(ChassisPwmFreq, RetOK, 0x2b);
 #[derive(Debug, Default)]
 pub struct ChassisPwmFreq {
     pub mask: u8,
-    pub pwm1: u16,
-    pub pwm2: u16,
-    pub pwm3: u16,
-    pub pwm4: u16,
-    pub pwm5: u16,
-    pub pwm6: u16,
+    pub pwms: [u16; 6],
 }
 
 impl Serialize for ChassisPwmFreq {
@@ -969,12 +947,9 @@ impl Serialize for ChassisPwmFreq {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.mask)?;
-        w.write_u16::<LE>(self.pwm1)?;
-        w.write_u16::<LE>(self.pwm2)?;
-        w.write_u16::<LE>(self.pwm3)?;
-        w.write_u16::<LE>(self.pwm4)?;
-        w.write_u16::<LE>(self.pwm5)?;
-        w.write_u16::<LE>(self.pwm6)?;
+        for v in self.pwms {
+            w.write_u16::<LE>(v)?;
+        }
         Ok(())
     }
 }
@@ -1135,7 +1110,7 @@ impl Serialize for SensorGetData {
     }
 }
 
-impl_v1_cmd!(ServoCtrlSet, ActionAccepted, 0xb7);
+impl_v1_action_cmd!(ServoCtrlSet, 0xb7);
 
 #[derive(Debug)]
 pub struct ServoCtrlSet {
@@ -1175,26 +1150,18 @@ impl_v1_event!(ServoCtrlPush, 0xb8);
 
 #[derive(Debug)]
 pub struct ServoCtrlPush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub value: i32,
 }
 
 impl Deserialize for ServoCtrlPush {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, 7);
-        let value = Cursor::new(&buf[3..]).read_i32::<LE>()?;
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            value,
-        })
+        let value = Cursor::new(buf).read_i32::<LE>()?;
+        Ok(Self { value })
     }
 }
 
-impl_v1_cmd!(RoboticArmMoveCtrl, ActionAccepted, 0xb5);
+impl_v1_action_cmd!(RoboticArmMoveCtrl, 0xb5);
 
 #[derive(Debug)]
 pub struct RoboticArmMoveCtrl {
@@ -1245,9 +1212,6 @@ impl_v1_event!(RoboticArmMovePush, 0xb6);
 
 #[derive(Debug)]
 pub struct RoboticArmMovePush {
-    pub action_id: u8,
-    pub percent: u8,
-    pub action_state: u8,
     pub x: i32,
     pub y: i32,
     pub z: i32,
@@ -1255,19 +1219,12 @@ pub struct RoboticArmMovePush {
 
 impl Deserialize for RoboticArmMovePush {
     fn de(buf: &[u8]) -> Result<Self> {
-        ensure_buf_size!(buf, 15);
-        let mut reader = Cursor::new(&buf[3..]);
+        ensure_buf_size!(buf, 12);
+        let mut reader = Cursor::new(buf);
         let x = reader.read_i32::<LE>()?;
         let y = reader.read_i32::<LE>()?;
         let z = reader.read_i32::<LE>()?;
-        Ok(Self {
-            action_id: buf[0],
-            percent: buf[1],
-            action_state: buf[2] & 0x3,
-            x,
-            y,
-            z,
-        })
+        Ok(Self { x, y, z })
     }
 }
 

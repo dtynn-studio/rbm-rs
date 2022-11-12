@@ -1,8 +1,10 @@
+use std::hash::Hash;
 use std::io::Write;
-use std::{borrow::Cow, hash::Hash};
 
 use crate::{ensure_ok, Error, Result};
 
+pub mod action;
+pub mod cmd;
 mod util;
 pub mod v1;
 
@@ -10,6 +12,9 @@ pub use util::{byte2host, host2byte};
 
 pub const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 pub const RM_SDK_LAST_SEQ_ID: u16 = 20000;
+
+pub const RM_SDK_FIRST_ACTION_ID: u16 = 1;
+pub const RM_SDK_LAST_ACTION_ID: u16 = 255;
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -63,33 +68,46 @@ pub trait CodecCtx {
     fn is_ask(&self) -> bool;
 }
 
+pub trait Completed {
+    fn is_completed(&self) -> bool;
+}
+
 #[allow(clippy::type_complexity)]
 pub trait Codec: Default + Send + Sync {
-    type CmdIdent: Eq + Hash + Send + std::fmt::Debug;
-    type Seq: Eq + Hash + Send + std::fmt::Debug;
+    type Ident: Eq + Hash + Send + Sync + std::fmt::Debug + Copy;
+    type Seq: Eq + Hash + Send + Sync + std::fmt::Debug + Copy;
     type Ctx: CodecCtx + Send + std::fmt::Debug;
+    type ActionResponse: Deserialize + Send + std::fmt::Debug + Completed;
+    type ActionStatus: Send + std::fmt::Debug + Completed;
 
-    fn ctx<M: Message<Ident = Self::CmdIdent>>(
+    fn next_cmd_seq(&self) -> Self::Seq;
+
+    fn next_action_seq(&self) -> Self::Seq;
+
+    fn ctx<M: Message<Ident = Self::Ident>>(
         sender: u8,
         receiver: u8,
         need_ack: Option<DussMBAck>,
     ) -> Self::Ctx;
 
-    fn pack_msg<M: Message<Ident = Self::CmdIdent>>(
+    fn pack_msg<M: Message<Ident = Self::Ident>>(
         &self,
         ctx: Self::Ctx,
         msg: M,
-    ) -> Result<((Self::CmdIdent, Self::Seq), Vec<u8>)>;
+        seq: Self::Seq,
+    ) -> Result<Vec<u8>>;
 
     #[allow(clippy::type_complexity)]
-    fn unpack_raw(buf: &[u8]) -> Result<((Self::CmdIdent, Self::Seq), Self::Ctx, &[u8], usize)>;
+    fn unpack_raw(buf: &[u8]) -> Result<((Self::Ident, Self::Seq), Self::Ctx, &[u8], usize)>;
+
+    fn unpack_action_status(buf: &[u8]) -> Result<(Self::Seq, Self::ActionStatus, usize)>;
 }
 
 pub trait Message: std::fmt::Debug + Serialize {
     type Ident;
-    type Response: std::fmt::Debug + Deserialize;
 
     const IDENT: Self::Ident;
+
     const CMD_TYPE: DussMBType = DussMBType::Req;
 }
 
@@ -97,42 +115,6 @@ pub trait Event: std::fmt::Debug + Deserialize {
     type Ident;
 
     const IDENT: Self::Ident;
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ActionState {
-    Idle,
-    Running,
-    Succeeded,
-    Failed,
-    Started,
-    Aborting,
-    Aborted,
-    Rejected,
-    Exception,
-}
-
-impl ActionState {
-    pub fn is_running(&self) -> bool {
-        *self == ActionState::Started || *self == ActionState::Running
-    }
-}
-
-pub trait Action {
-    type Message: Message;
-    type Event: Event;
-
-    fn update(&mut self, event: Self::Event) -> Result<()>;
-
-    fn state(&self) -> ActionState;
-
-    fn percent(&self) -> f64;
-
-    fn failure_reason(&self) -> Option<Cow<'static, str>>;
-
-    fn apply_state(&mut self, state: ActionState) -> Result<()>;
-
-    fn apply_event(&mut self, event: Self::Event) -> Result<()>;
 }
 
 pub trait Serialize {
