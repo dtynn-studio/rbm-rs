@@ -2,24 +2,36 @@ use std::io::Write;
 
 use crate::Result;
 
+pub mod v1;
+
 pub trait Codec: Sized {
     type Sender;
     type Receiver;
     type Ident;
     type Seq;
-    type Ctx;
-
-    fn ctx(sender: Self::Sender, receiver: Self::Receiver) -> Self::Ctx;
 
     fn pack_msg<M: Message<Self>>(
-        ctx: Self::Ctx,
+        sender: Self::Sender,
+        receiver: Self::Receiver,
         seq: Self::Seq,
         msg: M,
         need_ack: bool,
     ) -> Result<Vec<u8>>;
 
     #[allow(clippy::type_complexity)]
-    fn unpack_raw(data: &[u8]) -> Result<((Self::Ident, Self::Seq, Self::Ctx, &[u8]), usize)>;
+    fn unpack_raw(
+        buf: &[u8],
+    ) -> Result<(
+        (
+            Self::Sender,
+            Self::Receiver,
+            bool,
+            Self::Ident,
+            Self::Seq,
+            &[u8],
+        ),
+        usize,
+    )>;
 }
 
 pub trait Serialize<C: Codec> {
