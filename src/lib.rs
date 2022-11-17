@@ -1,3 +1,4 @@
+pub mod client;
 pub mod module;
 mod proto;
 mod res;
