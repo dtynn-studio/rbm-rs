@@ -4,6 +4,15 @@ use crate::Result;
 
 pub mod v1;
 
+pub type Raw<'r, C> = (
+    <C as Codec>::Sender,
+    <C as Codec>::Receiver,
+    bool,
+    <C as Codec>::Ident,
+    <C as Codec>::Seq,
+    &'r [u8],
+);
+
 pub trait Codec: Sized {
     type Sender;
     type Receiver;
@@ -18,20 +27,7 @@ pub trait Codec: Sized {
         need_ack: bool,
     ) -> Result<Vec<u8>>;
 
-    #[allow(clippy::type_complexity)]
-    fn unpack_raw(
-        buf: &[u8],
-    ) -> Result<(
-        (
-            Self::Sender,
-            Self::Receiver,
-            bool,
-            Self::Ident,
-            Self::Seq,
-            &[u8],
-        ),
-        usize,
-    )>;
+    fn unpack_raw(buf: &[u8]) -> Result<(Raw<Self>, usize)>;
 }
 
 pub trait Serialize<C: Codec> {
