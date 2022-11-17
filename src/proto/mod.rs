@@ -44,8 +44,23 @@ pub trait Message<C: Codec>: Serialize<C> {
     const IDENT: C::Ident;
 }
 
+/// Command: a simple request-response
 pub trait Command<C: Codec>: Message<C> {
     const RECEIVER: Option<C::Receiver>;
 
     type Resp: Deserialize<C>;
+}
+
+/// Action: a command to the target with a batch of updates from the target until the action is
+/// done.
+pub trait Action<C: Codec> {
+    type Cmd: Command<C>;
+    type Update: Deserialize<C>;
+}
+
+/// Subscribe: ask for the events published by the target, the incoming stream of events will not
+/// be terminated until user unsub the events.
+pub trait Subscribe<C: Codec> {
+    type Cmd: Command<C>;
+    type Event: Deserialize<C>;
 }
