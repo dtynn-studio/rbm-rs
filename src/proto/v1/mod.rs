@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use super::{Codec, Message};
+use super::{Codec, Message, Raw};
 use crate::{
     ensure_buf_size,
     util::algo::{crc16_calc, crc8_calc},
@@ -57,19 +57,7 @@ impl Codec for V1 {
         Ok(buf)
     }
 
-    fn unpack_raw(
-        buf: &[u8],
-    ) -> Result<(
-        (
-            Self::Sender,
-            Self::Receiver,
-            bool,
-            Self::Ident,
-            Self::Seq,
-            &[u8],
-        ),
-        usize,
-    )> {
+    fn unpack_raw(buf: &[u8]) -> Result<(Raw<V1>, usize)> {
         ensure_buf_size!(buf, MSG_HEADER_SIZE, "raw msg header");
         if buf[0] != MSG_MAGIN_NUM {
             return Err(Error::InvalidData("invalid magic number".into()));
@@ -86,14 +74,14 @@ impl Codec for V1 {
         let is_ack = buf[8] & 0x80 != 0;
 
         Ok((
-            (
-                buf[4],
-                buf[5],
+            Raw {
+                sender: buf[4],
+                receiver: buf[5],
                 is_ack,
-                (buf[9], buf[10]),
-                ((buf[7] as u16) << 8) | buf[6] as u16,
-                &buf[11..size - 2],
-            ),
+                id: (buf[9], buf[10]),
+                seq: ((buf[7] as u16) << 8) | buf[6] as u16,
+                raw_data: &buf[11..size - 2],
+            },
             size,
         ))
     }

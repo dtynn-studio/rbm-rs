@@ -4,14 +4,14 @@ use crate::Result;
 
 pub mod v1;
 
-pub type Raw<'r, C> = (
-    <C as Codec>::Sender,
-    <C as Codec>::Receiver,
-    bool,
-    <C as Codec>::Ident,
-    <C as Codec>::Seq,
-    &'r [u8],
-);
+pub struct Raw<'r, C: Codec> {
+    pub sender: C::Sender,
+    pub receiver: C::Receiver,
+    pub is_ack: bool,
+    pub id: C::Ident,
+    pub seq: C::Seq,
+    pub raw_data: &'r [u8],
+}
 
 pub trait Codec: Sized {
     type Sender;
