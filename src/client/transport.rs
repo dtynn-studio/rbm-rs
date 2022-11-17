@@ -5,6 +5,8 @@ use std::sync::Arc;
 use net2::TcpBuilder;
 
 pub trait Transport: Send + Sync + Sized {
+    const CONTINUOUS: bool;
+
     fn connect(bind: Option<SocketAddr>, dest: SocketAddr) -> Result<Self>;
 
     fn send(&mut self, data: &[u8]) -> Result<()>;
@@ -18,6 +20,8 @@ pub struct Tcp {
 }
 
 impl Transport for Tcp {
+    const CONTINUOUS: bool = true;
+
     fn connect(bind: Option<SocketAddr>, dest: SocketAddr) -> Result<Self> {
         let builder = TcpBuilder::new_v4()?;
 
@@ -55,6 +59,8 @@ pub struct Udp {
 }
 
 impl Transport for Udp {
+    const CONTINUOUS: bool = false;
+
     fn connect(bind: Option<SocketAddr>, dest: SocketAddr) -> Result<Self> {
         let socket = if let Some(bind) = bind {
             UdpSocket::bind(bind)?
