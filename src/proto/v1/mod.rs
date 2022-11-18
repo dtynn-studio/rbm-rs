@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{Codec, Message, Raw};
 use crate::{
@@ -7,22 +8,36 @@ use crate::{
     Error, Result,
 };
 
+const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
+const RM_SDK_LAST_SEQ_ID: u16 = 20000;
+
+const RM_SDK_FIRST_ACTION_ID: u16 = 1;
+const RM_SDK_LAST_ACTION_ID: u16 = 255;
+
+const CMD_SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
+const ACTION_SEQ_MOD: u64 = (RM_SDK_LAST_ACTION_ID - RM_SDK_FIRST_ACTION_ID) as u64;
+
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
+
+pub type Sender = u8;
+pub type Receiver = u8;
+pub type Ident = (u8, u8);
+pub type Seq = u16;
 
 pub struct V1;
 
 impl Codec for V1 {
-    type Sender = u8;
-    type Receiver = u8;
-    type Ident = (u8, u8);
-    type Seq = u16;
+    type Sender = Sender;
+    type Receiver = Receiver;
+    type Ident = Ident;
+    type Seq = Seq;
 
     fn pack_msg<M: Message<Self>>(
         sender: Self::Sender,
         receiver: Self::Receiver,
         seq: Self::Seq,
-        msg: M,
+        msg: &M,
         need_ack: bool,
     ) -> Result<Vec<u8>> {
         let id = (M::IDENT, seq);
@@ -80,9 +95,29 @@ impl Codec for V1 {
                 is_ack,
                 id: (buf[9], buf[10]),
                 seq: ((buf[7] as u16) << 8) | buf[6] as u16,
-                raw_data: &buf[11..size - 2],
+                raw_data: (&buf[11..size - 2]).into(),
             },
             size,
         ))
+    }
+}
+
+#[derive(Default)]
+pub struct CmdSequence(AtomicU64);
+
+impl CmdSequence {
+    pub fn next(&self) -> Seq {
+        let next = self.0.fetch_add(1, Ordering::Relaxed);
+        RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16
+    }
+}
+
+#[derive(Default)]
+pub struct ActionSequence(AtomicU64);
+
+impl ActionSequence {
+    pub fn next(&self) -> Seq {
+        let next = self.0.fetch_add(1, Ordering::Relaxed);
+        RM_SDK_FIRST_ACTION_ID + (next % ACTION_SEQ_MOD) as u16
     }
 }

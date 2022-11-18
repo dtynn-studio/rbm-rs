@@ -6,14 +6,19 @@ use crate::{
 };
 
 mod transport;
+pub mod v1;
+
+pub use transport::Transport;
 
 pub trait RawHandler<C: Codec> {
-    // return if the handler is finished
+    // return if the handler is executed
     fn recv(&mut self, raw: &Raw<C>) -> Result<bool>;
+
+    fn gc(&mut self);
 }
 
 pub trait Client<C: Codec>: Sized {
-    fn connect(
+    fn connect<T: Transport + 'static>(
         bind: Option<SocketAddr>,
         dest: SocketAddr,
         host: C::Sender,
@@ -21,13 +26,19 @@ pub trait Client<C: Codec>: Sized {
     ) -> Result<Self>;
 
     fn send_cmd<CMD: Command<C>>(
-        &mut self,
+        &self,
         receiver: Option<C::Receiver>,
         cmd: CMD,
         need_ack: bool,
-    ) -> Result<CMD::Resp>;
+    ) -> Result<Option<CMD::Resp>>
+    where
+        CMD::Resp: Send + 'static;
 
-    fn register_raw_handler<H: RawHandler<C>>(&mut self, name: &str, hdl: H) -> Result<()>;
+    fn register_raw_handler<H: RawHandler<C> + Send + 'static>(
+        &self,
+        name: &str,
+        hdl: H,
+    ) -> Result<()>;
 
-    fn unregister_raw_handler<H: RawHandler<C>>(&mut self, name: &str, hdl: H) -> Result<()>;
+    fn unregister_raw_handler<H: RawHandler<C>>(&self, name: &str) -> Result<bool>;
 }

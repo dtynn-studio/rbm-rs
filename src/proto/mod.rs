@@ -4,13 +4,13 @@ use crate::Result;
 
 pub mod v1;
 
-pub struct Raw<'r, C: Codec> {
+pub struct Raw<C: Codec> {
     pub sender: C::Sender,
     pub receiver: C::Receiver,
     pub is_ack: bool,
     pub id: C::Ident,
     pub seq: C::Seq,
-    pub raw_data: &'r [u8],
+    pub raw_data: Vec<u8>,
 }
 
 pub trait Codec: Sized {
@@ -23,7 +23,7 @@ pub trait Codec: Sized {
         sender: Self::Sender,
         receiver: Self::Receiver,
         seq: Self::Seq,
-        msg: M,
+        msg: &M,
         need_ack: bool,
     ) -> Result<Vec<u8>>;
 
@@ -46,8 +46,6 @@ pub trait Message<C: Codec>: Serialize<C> {
 
 /// Command: a simple request-response
 pub trait Command<C: Codec>: Message<C> {
-    const RECEIVER: Option<C::Receiver>;
-
     type Resp: Deserialize<C>;
 }
 
