@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::{
-    proto::{Codec, Command, Raw},
+    proto::{Codec, ProtoCommand, Raw},
     Result,
 };
 
@@ -12,9 +12,9 @@ pub use transport::Transport;
 
 pub trait RawHandler<C: Codec> {
     // return if the handler is executed
-    fn recv(&mut self, raw: &Raw<C>) -> Result<bool>;
+    fn recv(&self, raw: &Raw<C>) -> Result<bool>;
 
-    fn gc(&mut self);
+    fn gc(&self);
 }
 
 pub trait Client<C: Codec>: Sized {
@@ -25,7 +25,7 @@ pub trait Client<C: Codec>: Sized {
         target: C::Receiver,
     ) -> Result<Self>;
 
-    fn send_cmd<CMD: Command<C>>(
+    fn send_cmd<CMD: ProtoCommand<C>>(
         &self,
         receiver: Option<C::Receiver>,
         cmd: CMD,

@@ -1,21 +1,19 @@
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::{Codec, Message, Raw};
+use super::{Codec, ProtoMessage, Raw};
 use crate::{
     ensure_buf_size,
     util::algo::{crc16_calc, crc8_calc},
     Error, Result,
 };
 
+pub mod action;
+
 const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 const RM_SDK_LAST_SEQ_ID: u16 = 20000;
 
-const RM_SDK_FIRST_ACTION_ID: u16 = 1;
-const RM_SDK_LAST_ACTION_ID: u16 = 255;
-
 const CMD_SEQ_MOD: u64 = (RM_SDK_LAST_SEQ_ID - RM_SDK_FIRST_SEQ_ID) as u64;
-const ACTION_SEQ_MOD: u64 = (RM_SDK_LAST_ACTION_ID - RM_SDK_FIRST_ACTION_ID) as u64;
 
 const MSG_HEADER_SIZE: usize = 13;
 const MSG_MAGIN_NUM: u8 = 0x55;
@@ -33,7 +31,7 @@ impl Codec for V1 {
     type Ident = Ident;
     type Seq = Seq;
 
-    fn pack_msg<M: Message<Self>>(
+    fn pack_msg<M: ProtoMessage<Self>>(
         sender: Self::Sender,
         receiver: Self::Receiver,
         seq: Self::Seq,
@@ -41,34 +39,34 @@ impl Codec for V1 {
         need_ack: bool,
     ) -> Result<Vec<u8>> {
         let id = (M::IDENT, seq);
-        let size = MSG_HEADER_SIZE + msg.size();
+        let size = MSG_HEADER_SIZE + M::SIZE_HINT;
 
-        let mut buf = vec![0u8; size];
-        buf[0] = MSG_MAGIN_NUM;
-        buf[1] = (size & 0xff) as u8;
-        buf[2] = ((size >> 8) & 0x3 | 4) as u8;
+        let mut buf = Vec::with_capacity(size);
+        buf.push(MSG_MAGIN_NUM);
+        buf.push((size & 0xff) as u8);
+        buf.push(((size >> 8) & 0x3 | 4) as u8);
         // crc header
-        buf[3] = crc8_calc(&buf[0..3], None);
-        buf[4] = sender;
-        buf[5] = receiver;
-        buf[6] = (id.1 & 0xff) as u8;
-        buf[7] = ((id.1 >> 8) & 0xff) as u8;
+        buf.push(crc8_calc(&buf[0..3], None));
+        buf.push(sender);
+        buf.push(receiver);
+        buf.push((id.1 & 0xff) as u8);
+        buf.push(((id.1 >> 8) & 0xff) as u8);
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
-        buf[8] = (need_ack as u8) << 5;
+        buf.push((need_ack as u8) << 5);
 
         // encode proto
-        buf[9] = id.0 .0;
-        buf[10] = id.0 .1;
+        buf.push(id.0 .0);
+        buf.push(id.0 .1);
 
-        let mut writer = Cursor::new(&mut buf[11..size - 2]);
+        let mut writer = Cursor::new(&mut buf);
         msg.ser(&mut writer)?;
 
         // crc msg
-        let crc_msg = crc16_calc(&buf[..size - 2], None).to_le_bytes();
-        buf[size - 2] = crc_msg[0];
-        buf[size - 1] = crc_msg[1];
+        let crc_msg = crc16_calc(&buf[..], None).to_le_bytes();
+        buf.push(crc_msg[0]);
+        buf.push(crc_msg[1]);
         Ok(buf)
     }
 
@@ -109,15 +107,5 @@ impl CmdSequence {
     pub fn next(&self) -> Seq {
         let next = self.0.fetch_add(1, Ordering::Relaxed);
         RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16
-    }
-}
-
-#[derive(Default)]
-pub struct ActionSequence(AtomicU64);
-
-impl ActionSequence {
-    pub fn next(&self) -> Seq {
-        let next = self.0.fetch_add(1, Ordering::Relaxed);
-        RM_SDK_FIRST_ACTION_ID + (next % ACTION_SEQ_MOD) as u16
     }
 }

@@ -2,7 +2,10 @@ use std::io::Write;
 
 use crate::Result;
 
+mod action;
 pub mod v1;
+
+pub use action::*;
 
 pub struct Raw<C: Codec> {
     pub sender: C::Sender,
@@ -19,7 +22,7 @@ pub trait Codec: Sized {
     type Ident;
     type Seq;
 
-    fn pack_msg<M: Message<Self>>(
+    fn pack_msg<M: ProtoMessage<Self>>(
         sender: Self::Sender,
         receiver: Self::Receiver,
         seq: Self::Seq,
@@ -31,34 +34,33 @@ pub trait Codec: Sized {
 }
 
 pub trait Serialize<C: Codec> {
-    fn size(&self) -> usize;
+    const SIZE_HINT: usize;
 
-    fn ser(&self, w: impl Write) -> Result<()>;
+    fn ser(&self, w: &mut impl Write) -> Result<()>;
 }
 
 pub trait Deserialize<C: Codec>: Sized {
-    fn de(data: &[u8]) -> Result<Self>;
+    fn de(buf: &[u8]) -> Result<Self>;
 }
 
-pub trait Message<C: Codec>: Serialize<C> {
+pub trait ProtoMessage<C: Codec>: Serialize<C> {
     const IDENT: C::Ident;
 }
 
 /// Command: a simple request-response
-pub trait Command<C: Codec>: Message<C> {
+pub trait ProtoCommand<C: Codec>: ProtoMessage<C> {
     type Resp: Deserialize<C>;
-}
-
-/// Action: a command to the target with a batch of updates from the target until the action is
-/// done.
-pub trait Action<C: Codec> {
-    type Cmd: Command<C>;
-    type Update: Deserialize<C>;
 }
 
 /// Subscribe: ask for the events published by the target, the incoming stream of events will not
 /// be terminated until user unsub the events.
 pub trait Subscribe<C: Codec> {
-    type Cmd: Command<C>;
+    type Cmd: ProtoCommand<C>;
     type Event: Deserialize<C>;
+}
+
+pub trait ToProtoMessage<C: Codec> {
+    type Message: ProtoMessage<C>;
+
+    fn to_proto_message(&self) -> Result<Self::Message>;
 }

@@ -8,9 +8,12 @@ use tracing::{debug, trace, warn};
 
 use super::{RawHandler, Transport};
 use crate::{
-    proto::{v1, Codec, Command, Deserialize, Raw},
+    proto::{v1, Codec, Deserialize, ProtoCommand, Raw},
     Error, Result,
 };
+
+mod action;
+pub use action::*;
 
 type CmdCallback = Box<dyn FnOnce(Result<&Raw<v1::V1>>) + Send + 'static>;
 
@@ -79,7 +82,7 @@ impl super::Client<v1::V1> for Client {
         })
     }
 
-    fn send_cmd<CMD: Command<v1::V1>>(
+    fn send_cmd<CMD: ProtoCommand<v1::V1>>(
         &self,
         receiver: Option<<v1::V1 as Codec>::Receiver>,
         cmd: CMD,
@@ -295,7 +298,7 @@ where
                     }
                 };
 
-                for (name, hdl) in raw_handlers.iter_mut() {
+                for (name, hdl) in raw_handlers.iter() {
                     match hdl.recv(&raw) {
                         Ok(handled) => {
                             if handled {
@@ -312,7 +315,7 @@ where
 
             // clenup
             default(Duration::from_secs(300)) => {
-                for hdl in raw_handlers.values_mut() {
+                for hdl in raw_handlers.values() {
                     hdl.gc();
                 }
             }
