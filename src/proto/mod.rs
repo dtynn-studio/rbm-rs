@@ -3,9 +3,11 @@ use std::io::Write;
 use crate::Result;
 
 mod action;
+mod subscribe;
 pub mod v1;
 
 pub use action::*;
+pub use subscribe::*;
 
 pub struct Raw<C: Codec> {
     pub sender: C::Sender,
@@ -47,16 +49,9 @@ pub trait ProtoMessage<C: Codec>: Serialize<C> {
     const IDENT: C::Ident;
 }
 
-/// Command: a simple request-response
+/// ProtoCommand: a simple request-response
 pub trait ProtoCommand<C: Codec>: ProtoMessage<C> {
     type Resp: Deserialize<C>;
-}
-
-/// Subscribe: ask for the events published by the target, the incoming stream of events will not
-/// be terminated until user unsub the events.
-pub trait Subscribe<C: Codec> {
-    type Cmd: ProtoCommand<C>;
-    type Event: Deserialize<C>;
 }
 
 pub trait ToProtoMessage<C: Codec> {
