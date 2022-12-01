@@ -7,6 +7,8 @@ pub trait ProtoAction<C: Codec> {
     type Cmd: ProtoCommand<C>;
     type Update: Deserialize<C>;
 
+    const TARGET: Option<C::Receiver>;
+
     fn pack_cmd(&self) -> Result<Self::Cmd>;
 }
 

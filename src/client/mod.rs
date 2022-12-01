@@ -14,7 +14,7 @@ pub trait RawHandler<C: Codec> {
     // return if the handler is executed
     fn recv(&self, raw: &Raw<C>) -> Result<bool>;
 
-    fn gc(&self);
+    fn gc(&self) -> Result<()>;
 }
 
 pub trait Client<C: Codec>: Sized {

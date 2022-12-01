@@ -67,6 +67,12 @@ pub enum ActionCtrl {
     Cancel = 1,
 }
 
+impl Default for ActionCtrl {
+    fn default() -> Self {
+        Self::Start
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 pub enum ActionUpdateFreq {
@@ -75,11 +81,22 @@ pub enum ActionUpdateFreq {
     TenHz = 2,
 }
 
+impl Default for ActionUpdateFreq {
+    fn default() -> Self {
+        Self::TenHz
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ActionConfig {
+    pub freq: ActionUpdateFreq,
+    pub ctrl: ActionCtrl,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ActionHead {
     pub id: u8,
-    pub freq: ActionUpdateFreq,
-    pub ctrl: ActionCtrl,
+    pub cfg: ActionConfig,
 }
 
 impl Serialize<V1> for ActionHead {
@@ -87,12 +104,12 @@ impl Serialize<V1> for ActionHead {
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.id)?;
-        w.write_u8(self.ctrl as u8 | (self.freq as u8) << 2)?;
+        w.write_u8(self.cfg.ctrl as u8 | (self.cfg.freq as u8) << 2)?;
         Ok(())
     }
 }
 
-const ACTION_UPDATE_HEAD_SIZE: usize = 3;
+pub const ACTION_UPDATE_HEAD_SIZE: usize = 3;
 
 #[derive(Debug)]
 pub struct ActionUpdateHead {
@@ -125,10 +142,11 @@ impl Deserialize<V1> for (Seq, ActionUpdateHead) {
     }
 }
 
-pub trait V1ActionStatus {
+pub trait V1Action: ToProtoMessage<V1> {
+    const TARGET: Option<super::Receiver>;
     type Update: Deserialize<V1>;
 
-    fn apply_update(&mut self, update: ((Seq, ActionUpdateHead), Self::Update)) -> Result<()>;
+    fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool>;
 }
 
 impl<T: ProtoMessage<V1>> Serialize<V1> for (ActionHead, T) {
@@ -156,16 +174,12 @@ impl<T: Deserialize<V1>> Deserialize<V1> for ((Seq, ActionUpdateHead), T) {
     }
 }
 
-pub struct V1Action<A: ToProtoMessage<V1> + V1ActionStatus> {
-    pub head: ActionHead,
-    pub status: A,
-}
-
-impl<A: ToProtoMessage<V1> + V1ActionStatus> ProtoAction<V1> for V1Action<A> {
+impl<'a, A: V1Action> ProtoAction<V1> for (ActionHead, &'a A) {
+    const TARGET: Option<super::Receiver> = A::TARGET;
     type Cmd = (ActionHead, A::Message);
     type Update = A::Update;
 
     fn pack_cmd(&self) -> Result<Self::Cmd> {
-        self.status.to_proto_message().map(|msg| (self.head, msg))
+        self.1.to_proto_message().map(|msg| (self.0, msg))
     }
 }
