@@ -1,9 +1,9 @@
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::{Codec, ProtoMessage, Raw};
+use super::{Codec, Deserialize, ProtoMessage, Raw};
 use crate::{
-    ensure_buf_size,
+    ensure_buf_size, ensure_ok,
     util::algo::{crc16_calc, crc8_calc},
     Error, Result,
 };
@@ -111,5 +111,15 @@ impl CmdSequence {
     pub fn next(&self) -> Seq {
         let next = self.0.fetch_add(1, Ordering::Relaxed);
         RM_SDK_FIRST_SEQ_ID + (next % CMD_SEQ_MOD) as u16
+    }
+}
+
+#[derive(Debug)]
+pub struct RetOK;
+
+impl Deserialize<V1> for RetOK {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_ok!(buf);
+        Ok(RetOK)
     }
 }
