@@ -89,19 +89,19 @@ impl Deserialize<V1> for SetSdkConnectionResp {
     }
 }
 
-impl_v1_cmd!(SetSdkMode, RetOK, CMD_SET_CTRL, 0xd1);
+impl_v1_cmd!(EnableSdkMode, RetOK, CMD_SET_CTRL, 0xd1);
 
 #[derive(Debug)]
-pub struct SetSdkMode(bool);
+pub struct EnableSdkMode(bool);
 
-impl From<bool> for SetSdkMode {
+impl From<bool> for EnableSdkMode {
     #[inline]
     fn from(v: bool) -> Self {
         Self(v)
     }
 }
 
-impl Serialize<V1> for SetSdkMode {
+impl Serialize<V1> for EnableSdkMode {
     const SIZE_HINT: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {

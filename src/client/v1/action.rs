@@ -7,9 +7,9 @@ use crate::{
         v1::{
             action::{
                 ActionConfig, ActionHead, ActionSequence, ActionUpdateHead, V1Action,
-                ACTION_UPDATE_HEAD_SIZE,
+                V1ActionUpdate, ACTION_UPDATE_HEAD_SIZE,
             },
-            Seq, V1,
+            Ident, Seq, V1,
         },
         ActionState, Deserialize, ProtoAction, Raw,
     },
@@ -18,7 +18,7 @@ use crate::{
 };
 
 enum ActionCallbackInput<'a> {
-    Update(ActionUpdateHead, &'a [u8]),
+    Update(ActionUpdateHead, &'a Raw<V1>, usize),
     Check,
 }
 
@@ -27,7 +27,7 @@ type ActionCallback = Box<dyn FnMut(ActionCallbackInput) -> Result<()>>;
 pub struct ActionDispatcher {
     seq: ActionSequence,
     client: V1Client,
-    callbacks: Mutex<HashMap<Seq, ActionCallback>>,
+    callbacks: Mutex<HashMap<(Ident, Seq), ActionCallback>>,
 }
 
 impl ActionDispatcher {
@@ -48,11 +48,13 @@ impl ActionDispatcher {
             action,
         );
 
+        let update_ident = <A::Update as V1ActionUpdate>::IDENT;
+
         let (mut tx, rx) = unbounded();
         let callback: ActionCallback = Box::new(move |input| {
             match input {
-                ActionCallbackInput::Update(head, buf) => {
-                    let update = <A::Update as Deserialize<V1>>::de(buf)?;
+                ActionCallbackInput::Update(head, raw, used) => {
+                    let update = <A::Update as Deserialize<V1>>::de(&raw.raw_data[used..])?;
                     tx.send((head, update))
                         .map_err(|_e| Error::Other("update chan broken".into()))?;
                 }
@@ -69,7 +71,7 @@ impl ActionDispatcher {
 
         self.callbacks
             .lock()
-            .map(|mut cbs| cbs.insert(seq, callback))
+            .map(|mut cbs| cbs.insert((update_ident, seq), callback))
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 
         let cmd = wrapped.pack_cmd()?;
@@ -101,10 +103,11 @@ impl RawHandler<V1> for ActionDispatcher {
             .lock()
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 
-        if let Some(cb) = callbacks.get_mut(&seq) {
+        if let Some(cb) = callbacks.get_mut(&(raw.id, seq)) {
             cb(ActionCallbackInput::Update(
                 head,
-                &raw.raw_data[ACTION_UPDATE_HEAD_SIZE..],
+                raw,
+                ACTION_UPDATE_HEAD_SIZE,
             ))?;
             return Ok(true);
         }

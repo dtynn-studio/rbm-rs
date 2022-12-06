@@ -128,6 +128,12 @@ impl Default for ActionUpdateHead {
     }
 }
 
+impl ActionUpdateHead {
+    pub fn is_completed(&self) -> bool {
+        self.percent == 100 || self.state.is_completed()
+    }
+}
+
 impl Deserialize<V1> for (Seq, ActionUpdateHead) {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, ACTION_UPDATE_HEAD_SIZE);
@@ -142,9 +148,13 @@ impl Deserialize<V1> for (Seq, ActionUpdateHead) {
     }
 }
 
+pub trait V1ActionUpdate: Deserialize<V1> {
+    const IDENT: Ident;
+}
+
 pub trait V1Action: ToProtoMessage<V1> {
     const TARGET: Option<super::Receiver>;
-    type Update: Deserialize<V1>;
+    type Update: V1ActionUpdate;
 
     fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool>;
 }

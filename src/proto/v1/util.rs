@@ -6,6 +6,14 @@ macro_rules! impl_v1_msg {
     };
 }
 
+macro_rules! impl_v1_action_update {
+    ($name:ident, $cset:ident, $cid:literal) => {
+        impl $crate::proto::v1::action::V1ActionUpdate for $name {
+            const IDENT: $crate::proto::v1::Ident = ($cset, $cid);
+        }
+    };
+}
+
 macro_rules! impl_v1_cmd {
     ($name:ident, $resp:ty, $cset:ident, $cid:literal) => {
         $crate::proto::v1::impl_v1_msg!($name, $cset, $cid);
@@ -38,6 +46,7 @@ macro_rules! impl_v1_empty_de {
     };
 }
 
+pub(crate) use impl_v1_action_update;
 pub(crate) use impl_v1_cmd;
 pub(crate) use impl_v1_empty_de;
 pub(crate) use impl_v1_empty_ser;
