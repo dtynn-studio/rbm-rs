@@ -4,6 +4,14 @@ use std::sync::Arc;
 
 use net2::TcpBuilder;
 
+pub trait TransportTx: Send + Sync {
+    fn send(&mut self, data: &[u8]) -> Result<()>;
+}
+
+pub trait TransportRx: Send + Sync {
+    fn recv(&mut self, buf: &mut [u8]) -> Result<usize>;
+}
+
 pub trait Transport: Send + Sync + Sized {
     const CONTINUOUS: bool;
 
