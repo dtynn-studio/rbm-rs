@@ -113,11 +113,18 @@ pub fn main() {
             .expect("send move action cmd");
 
         while let Some(update) = recv_rx.recv() {
-            if let Err(e) = move_action.apply_update(update) {
-                warn!("recv move update: {:?}", e);
-            }
+            match move_action.apply_update(update) {
+                Ok(done) => {
+                    info!("move progress: {:?}", move_action.progress);
+                    if done {
+                        break;
+                    }
+                }
 
-            info!("move progress: {:?}", move_action.progress);
+                Err(e) => {
+                    warn!("apply move update: {:?}", e);
+                }
+            }
         }
     }
 
