@@ -6,7 +6,7 @@ use crate::{
 mod transport;
 pub mod v1;
 
-pub use transport::{Transport, TransportRx, TransportTx};
+pub use transport::{Transport, TransportRx, TransportRxCloser, TransportTx};
 
 pub trait RawHandler<C: Codec> {
     // return if the handler is executed
@@ -19,6 +19,7 @@ pub trait Client<C: Codec>: Sized {
     fn new(
         tx: Box<dyn TransportTx>,
         rxs: Vec<Box<dyn TransportRx>>,
+        closers: Vec<Box<dyn TransportRxCloser>>,
         host: C::Sender,
         target: C::Receiver,
     ) -> Result<Self>;

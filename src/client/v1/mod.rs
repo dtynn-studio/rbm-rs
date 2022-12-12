@@ -1,4 +1,5 @@
 use std::collections::{hash_map::Entry, HashMap};
+use std::io::ErrorKind;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -59,6 +60,7 @@ impl super::Client<v1::V1> for Client {
     fn new(
         tx: Box<dyn super::TransportTx>,
         rxs: Vec<Box<dyn super::TransportRx>>,
+        closers: Vec<Box<dyn super::TransportRxCloser>>,
         host: <v1::V1 as Codec>::Sender,
         target: <v1::V1 as Codec>::Receiver,
     ) -> Result<Self> {
@@ -66,7 +68,7 @@ impl super::Client<v1::V1> for Client {
         let (done_tx, done_rx) = bounded(0);
 
         let join = thread::spawn(move || {
-            start_client_inner(tx, rxs, event_rx, done_rx);
+            start_client_inner(tx, rxs, closers, event_rx, done_rx);
         });
 
         Ok(Self {
@@ -177,6 +179,7 @@ impl super::Client<v1::V1> for Client {
 fn start_client_inner(
     trans_tx: Box<dyn TransportTx>,
     trans_rxs: Vec<Box<dyn TransportRx>>,
+    trans_rx_closers: Vec<Box<dyn super::TransportRxCloser>>,
     event_rx: Receiver<Event>,
     done: Receiver<()>,
 ) {
@@ -192,6 +195,12 @@ fn start_client_inner(
                 // TODO: logging
             }
             debug!("client event loop stop");
+
+            for mut closer in trans_rx_closers {
+                if let Err(_e) = closer.close() {
+                    // TODO: logging
+                }
+            }
         });
 
         // transport recv thread
@@ -328,10 +337,16 @@ fn handle_client_recv(
     let mut buf = [0u8; 2048];
     loop {
         debug!("waiting for incoming msg");
-        let read = recv_trans.recv(&mut buf[..])?;
-        if read == 0 {
-            return Ok(());
-        }
+        let read = match recv_trans.recv(&mut buf[..]) {
+            Ok(read) => read,
+            Err(e) => {
+                return if e.kind() == ErrorKind::NotConnected {
+                    Ok(())
+                } else {
+                    Err(e.into())
+                }
+            }
+        };
 
         match v1::V1::unpack_raw(&buf[..read]) {
             Ok((raw, _consumed)) => {
