@@ -44,3 +44,16 @@ impl TryFrom<u8> for ActionState {
         Ok(res)
     }
 }
+
+impl ActionState {
+    pub fn is_running(&self) -> bool {
+        *self == Self::Started || *self == Self::Running
+    }
+
+    pub fn is_completed(&self) -> bool {
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::Exception | Self::Rejected
+        )
+    }
+}

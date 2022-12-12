@@ -1,14 +1,12 @@
-use std::net::SocketAddr;
-
 use crate::{
     proto::{Codec, ProtoCommand, Raw},
     Result,
 };
 
-mod transport;
+pub mod transport;
 pub mod v1;
 
-pub use transport::Transport;
+use transport::{TransportRx, TransportRxCloser, TransportTx};
 
 pub trait RawHandler<C: Codec> {
     // return if the handler is executed
@@ -18,9 +16,10 @@ pub trait RawHandler<C: Codec> {
 }
 
 pub trait Client<C: Codec>: Sized {
-    fn connect<T: Transport + 'static>(
-        bind: Option<SocketAddr>,
-        dest: SocketAddr,
+    fn new(
+        tx: Box<dyn TransportTx>,
+        rxs: Vec<Box<dyn TransportRx>>,
+        closers: Vec<Box<dyn TransportRxCloser>>,
         host: C::Sender,
         target: C::Receiver,
     ) -> Result<Self>;
@@ -40,5 +39,5 @@ pub trait Client<C: Codec>: Sized {
         hdl: H,
     ) -> Result<()>;
 
-    fn unregister_raw_handler<H: RawHandler<C>>(&self, name: &str) -> Result<bool>;
+    fn unregister_raw_handler(&self, name: &str) -> Result<bool>;
 }

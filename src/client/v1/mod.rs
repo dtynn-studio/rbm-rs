@@ -1,12 +1,12 @@
 use std::collections::{hash_map::Entry, HashMap};
-use std::net::SocketAddr;
+use std::io::ErrorKind;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::{bounded, select, unbounded, Receiver, Sender};
 use tracing::{debug, trace, warn};
 
-use super::{RawHandler, Transport};
+use super::{RawHandler, TransportRx, TransportTx};
 use crate::{
     proto::{v1, Codec, Deserialize, ProtoCommand, Raw},
     Error, Result,
@@ -57,19 +57,18 @@ impl Drop for Client {
 }
 
 impl super::Client<v1::V1> for Client {
-    fn connect<T: Transport + 'static>(
-        bind: Option<SocketAddr>,
-        dest: SocketAddr,
+    fn new(
+        tx: Box<dyn super::TransportTx>,
+        rxs: Vec<Box<dyn super::TransportRx>>,
+        closers: Vec<Box<dyn super::TransportRxCloser>>,
         host: <v1::V1 as Codec>::Sender,
         target: <v1::V1 as Codec>::Receiver,
     ) -> Result<Self> {
-        let send_trans = T::connect(bind, dest)?;
-        let recv_trans = send_trans.try_clone()?;
         let (event_tx, event_rx) = unbounded();
         let (done_tx, done_rx) = bounded(0);
 
         let join = thread::spawn(move || {
-            start_client_inner::<T>(send_trans, recv_trans, event_rx, done_rx);
+            start_client_inner(tx, rxs, closers, event_rx, done_rx);
         });
 
         Ok(Self {
@@ -91,19 +90,15 @@ impl super::Client<v1::V1> for Client {
     where
         CMD::Resp: Send + 'static,
     {
+        let seq = self.cmd_seq.next();
+
         let data = v1::V1::pack_msg(
             self.host,
             receiver.unwrap_or(self.target),
-            0,
+            seq,
             &cmd,
             need_ack,
         )?;
-
-        let seq = self.cmd_seq.next();
-
-        if !need_ack {
-            return Ok(None);
-        }
 
         let mut callback: Option<CmdCallback> = None;
 
@@ -161,7 +156,7 @@ impl super::Client<v1::V1> for Client {
             .map_err(|_e| Error::Other("register response chan broken".into()))?
     }
 
-    fn unregister_raw_handler<H: RawHandler<v1::V1>>(&self, name: &str) -> Result<bool> {
+    fn unregister_raw_handler(&self, name: &str) -> Result<bool> {
         let (resp_tx, resp_rx) = bounded(1);
         self.event_tx
             .send(Event::UnregisterRawHandler {
@@ -177,54 +172,58 @@ impl super::Client<v1::V1> for Client {
     }
 }
 
-fn start_client_inner<T>(
-    mut sender_trans: T,
-    recv_trans: T,
+fn start_client_inner(
+    trans_tx: Box<dyn TransportTx>,
+    trans_rxs: Vec<Box<dyn TransportRx>>,
+    trans_rx_closers: Vec<Box<dyn super::TransportRxCloser>>,
     event_rx: Receiver<Event>,
     done: Receiver<()>,
-) where
-    T: Transport,
-{
+) {
     let (recv_done_tx, recv_done_rx) = bounded::<()>(0);
     let (recv_raw_tx, recv_raw_rx) = unbounded();
 
     thread::scope(|s| {
         s.spawn(|| {
             debug!("client event loop start");
-            if let Err(_e) = handle_client_event::<T>(
-                done,
-                &mut sender_trans,
-                event_rx,
-                recv_raw_rx,
-                recv_done_rx,
-            ) {
+            if let Err(_e) =
+                handle_client_event(done, trans_tx, event_rx, recv_raw_rx, recv_done_rx)
+            {
                 // TODO: logging
             }
-            sender_trans.shutdown();
             debug!("client event loop stop");
+
+            for mut closer in trans_rx_closers {
+                if let Err(_e) = closer.close() {
+                    // TODO: logging
+                }
+            }
         });
 
         // transport recv thread
-        s.spawn(|| {
-            debug!("client recv loop start");
-            if let Err(_e) = handle_client_recv::<T>(recv_done_tx, recv_trans, recv_raw_tx) {
-                // TODO: logging
-            }
-            debug!("client recv loop stop");
-        });
+        for trans_rx in trans_rxs {
+            let done_tx = recv_done_tx.clone();
+            let raw_tx = recv_raw_tx.clone();
+            s.spawn(|| {
+                debug!("client recv loop start");
+                if let Err(_e) = handle_client_recv(done_tx, trans_rx, raw_tx) {
+                    // TODO: logging
+                }
+                debug!("client recv loop stop");
+            });
+        }
+
+        drop(recv_done_tx);
+        drop(recv_raw_tx);
     });
 }
 
-fn handle_client_event<T>(
+fn handle_client_event(
     done: Receiver<()>,
-    trans: &mut T,
+    mut trans: Box<dyn TransportTx>,
     event_rx: Receiver<Event>,
     raw_rx: Receiver<Raw<v1::V1>>,
     recv_loop_done: Receiver<()>,
-) -> Result<()>
-where
-    T: Transport,
-{
+) -> Result<()> {
     let mut callbacks: HashMap<(v1::Ident, v1::Seq), (Instant, Option<CmdCallback>)> =
         HashMap::new();
     let mut raw_handlers: HashMap<String, Box<dyn RawHandler<v1::V1> + 'static>> = HashMap::new();
@@ -245,6 +244,7 @@ where
                 let event = event_res.map_err(|_| Error::Other("msg chan broken".into()))?;
                 match event {
                     Event::Cmd { id, seq, data, callback } => {
+                        trace!(?id, seq, ?data, "event cmd");
                         trans.send(&data)?;
 
                         callbacks.insert((id, seq), (Instant::now(), callback));
@@ -316,29 +316,34 @@ where
             // clenup
             default(Duration::from_secs(300)) => {
                 for hdl in raw_handlers.values() {
-                    hdl.gc();
+                    if let Err(_e) = hdl.gc() {
+                        // TODO: logging
+                    };
                 }
             }
         }
     }
 }
 
-fn handle_client_recv<T>(
+fn handle_client_recv(
     loop_done: Sender<()>,
-    mut recv_trans: T,
+    mut recv_trans: Box<dyn TransportRx>,
     raw_tx: Sender<Raw<v1::V1>>,
-) -> Result<()>
-where
-    T: Transport,
-{
+) -> Result<()> {
     let _done = loop_done;
     let mut buf = [0u8; 2048];
     loop {
         debug!("waiting for incoming msg");
-        let read = recv_trans.recv(&mut buf[..])?;
-        if read == 0 {
-            return Ok(());
-        }
+        let read = match recv_trans.recv(&mut buf[..]) {
+            Ok(read) => read,
+            Err(e) => {
+                return if e.kind() == ErrorKind::NotConnected {
+                    Ok(())
+                } else {
+                    Err(e.into())
+                }
+            }
+        };
 
         match v1::V1::unpack_raw(&buf[..read]) {
             Ok((raw, _consumed)) => {

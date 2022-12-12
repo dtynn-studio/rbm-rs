@@ -1,7 +1,8 @@
 pub mod client;
 pub mod module;
-mod proto;
+pub mod network;
+pub mod proto;
 mod res;
-pub(crate) mod util;
+pub mod util;
 
 pub use res::*;
