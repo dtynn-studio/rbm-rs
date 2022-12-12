@@ -1,7 +1,7 @@
-pub mod algo;
-pub mod chan;
-pub mod decimal;
-pub mod unit_convertor;
+pub(crate) mod algo;
+pub(crate) mod chan;
+pub(crate) mod decimal;
+pub(crate) mod unit_convertor;
 
 pub const fn host2byte(host: u8, index: u8) -> u8 {
     index << 5 | host

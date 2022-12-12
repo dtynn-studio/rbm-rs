@@ -3,10 +3,10 @@ use crate::{
     Result,
 };
 
-mod transport;
+pub mod transport;
 pub mod v1;
 
-pub use transport::{Transport, TransportRx, TransportRxCloser, TransportTx};
+use transport::{TransportRx, TransportRxCloser, TransportTx};
 
 pub trait RawHandler<C: Codec> {
     // return if the handler is executed
@@ -39,5 +39,5 @@ pub trait Client<C: Codec>: Sized {
         hdl: H,
     ) -> Result<()>;
 
-    fn unregister_raw_handler<H: RawHandler<C>>(&self, name: &str) -> Result<bool>;
+    fn unregister_raw_handler(&self, name: &str) -> Result<bool>;
 }

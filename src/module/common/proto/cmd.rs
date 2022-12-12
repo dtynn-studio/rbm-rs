@@ -21,7 +21,7 @@ impl_v1_cmd!(SetSdkConnection, SetSdkConnectionResp, CMD_SET_CTRL, 0xd4);
 #[derive(Debug)]
 pub struct SetSdkConnection {
     // this field is not used anywhere in the origin sdk
-    ctrl: u8,
+    // pub ctrl: u8,
     pub host: u8,
     pub network: NetworkType,
     pub connection: ConnectionType,
@@ -31,7 +31,7 @@ pub struct SetSdkConnection {
 impl Default for SetSdkConnection {
     fn default() -> Self {
         Self {
-            ctrl: 0,
+            // ctrl: 0,
             host: 0,
             network: NetworkType::default(),
             connection: ConnectionType::default(),
@@ -46,7 +46,7 @@ impl Serialize<V1> for SetSdkConnection {
         let ip = self.addr.ip().octets();
         let port_bytes = self.addr.port().to_le_bytes();
         let data: [u8; Self::SIZE_HINT] = [
-            self.ctrl,
+            0, // how to use ctrl field is still unknown, so just make it a constant
             self.host,
             self.network as u8,
             self.connection as u8,

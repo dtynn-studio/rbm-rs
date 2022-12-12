@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::{
     client::{v1::Client as V1Client, Client, RawHandler},
@@ -17,27 +17,50 @@ use crate::{
     Error, Result,
 };
 
+const HANDLER_NAME: &str = "v1::actions::ActionDispatcher";
+
 enum ActionCallbackInput<'a> {
     Update(ActionUpdateHead, &'a Raw<V1>, usize),
     Check,
 }
 
-type ActionCallback = Box<dyn FnMut(ActionCallbackInput) -> Result<()>>;
+type ActionCallback = Box<dyn FnMut(ActionCallbackInput) -> Result<()> + Send>;
+
+#[derive(Default)]
+struct ActionCallbacks(Mutex<HashMap<(Ident, Seq), ActionCallback>>);
 
 pub struct ActionDispatcher {
     seq: ActionSequence,
-    client: V1Client,
-    callbacks: Mutex<HashMap<(Ident, Seq), ActionCallback>>,
+    client: Arc<V1Client>,
+    callbacks: Arc<ActionCallbacks>,
+}
+
+impl Drop for ActionDispatcher {
+    fn drop(&mut self) {
+        let _ = self.client.unregister_raw_handler(HANDLER_NAME);
+    }
 }
 
 impl ActionDispatcher {
+    pub fn new(client: Arc<V1Client>) -> Result<Self> {
+        let callbacks: Arc<ActionCallbacks> = Default::default();
+
+        client.register_raw_handler(HANDLER_NAME, callbacks.clone())?;
+
+        Ok(Self {
+            seq: Default::default(),
+            client,
+            callbacks,
+        })
+    }
+
     pub fn send<A: V1Action>(
         &self,
         cfg: Option<ActionConfig>,
         action: &A,
     ) -> Result<Rx<(ActionUpdateHead, A::Update)>>
     where
-        A::Update: 'static,
+        A::Update: Send + 'static,
     {
         let seq = self.seq.next();
         let wrapped = (
@@ -70,6 +93,7 @@ impl ActionDispatcher {
         });
 
         self.callbacks
+            .0
             .lock()
             .map(|mut cbs| cbs.insert((update_ident, seq), callback))
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
@@ -91,7 +115,7 @@ impl ActionDispatcher {
     }
 }
 
-impl RawHandler<V1> for ActionDispatcher {
+impl RawHandler<V1> for Arc<ActionCallbacks> {
     fn recv(&self, raw: &Raw<V1>) -> Result<bool> {
         if raw.is_ack {
             return Ok(false);
@@ -99,7 +123,7 @@ impl RawHandler<V1> for ActionDispatcher {
 
         let (seq, head): (Seq, ActionUpdateHead) = Deserialize::de(&raw.raw_data[..])?;
         let mut callbacks = self
-            .callbacks
+            .0
             .lock()
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 
@@ -117,7 +141,7 @@ impl RawHandler<V1> for ActionDispatcher {
 
     fn gc(&self) -> Result<()> {
         let mut callbacks = self
-            .callbacks
+            .0
             .lock()
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 

@@ -160,7 +160,7 @@ impl super::Client<v1::V1> for Client {
             .map_err(|_e| Error::Other("register response chan broken".into()))?
     }
 
-    fn unregister_raw_handler<H: RawHandler<v1::V1>>(&self, name: &str) -> Result<bool> {
+    fn unregister_raw_handler(&self, name: &str) -> Result<bool> {
         let (resp_tx, resp_rx) = bounded(1);
         self.event_tx
             .send(Event::UnregisterRawHandler {
