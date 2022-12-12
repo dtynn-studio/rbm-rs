@@ -1,6 +1,8 @@
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use byteorder::WriteBytesExt;
+
 use super::{Codec, Deserialize, ProtoMessage, Raw};
 use crate::{
     ensure_buf_size, ensure_ok,
@@ -45,33 +47,34 @@ impl Codec for V1 {
         let id = (M::IDENT, seq);
         let size = MSG_HEADER_SIZE + M::SIZE_HINT;
 
-        let mut buf = Vec::with_capacity(size);
-        buf.push(MSG_MAGIN_NUM);
-        buf.push((size & 0xff) as u8);
-        buf.push(((size >> 8) & 0x3 | 4) as u8);
-        // crc header
-        buf.push(crc8_calc(&buf[0..3], None));
-        buf.push(sender);
-        buf.push(receiver);
-        buf.push((id.1 & 0xff) as u8);
-        buf.push(((id.1 >> 8) & 0xff) as u8);
+        let buf = Vec::with_capacity(size);
+        let mut writer = Cursor::new(buf);
+        writer.write_u8(MSG_MAGIN_NUM)?; // #0
+        writer.write_u8((size & 0xff) as u8)?; // #1
+        writer.write_u8(((size >> 8) & 0x3 | 4) as u8)?; // #2
+                                                         // crc header
+        let crc_header = crc8_calc(&writer.get_ref()[0..3], None);
+        writer.write_u8(crc_header)?; // #3
+        writer.write_u8(sender)?; // #4
+        writer.write_u8(receiver)?; // #5
+        writer.write_u8((id.1 & 0xff) as u8)?; // #6
+        writer.write_u8(((id.1 >> 8) & 0xff) as u8)?; // #7
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
-        buf.push((need_ack as u8) << 5);
+        writer.write_u8((need_ack as u8) << 5)?; // #8
 
         // encode proto
-        buf.push(id.0 .0);
-        buf.push(id.0 .1);
+        writer.write_u8(id.0 .0)?; // #9
+        writer.write_u8(id.0 .1)?; // #10
 
-        let mut writer = Cursor::new(&mut buf);
-        msg.ser(&mut writer)?;
+        msg.ser(&mut writer)?; // msg
 
         // crc msg
-        let crc_msg = crc16_calc(&buf[..], None).to_le_bytes();
-        buf.push(crc_msg[0]);
-        buf.push(crc_msg[1]);
-        Ok(buf)
+        let crc_msg = crc16_calc(&writer.get_ref()[..], None).to_le_bytes();
+        writer.write_u8(crc_msg[0])?;
+        writer.write_u8(crc_msg[1])?;
+        Ok(writer.into_inner())
     }
 
     fn unpack_raw(buf: &[u8]) -> Result<(Raw<V1>, usize)> {

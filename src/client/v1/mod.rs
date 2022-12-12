@@ -90,19 +90,15 @@ impl super::Client<v1::V1> for Client {
     where
         CMD::Resp: Send + 'static,
     {
+        let seq = self.cmd_seq.next();
+
         let data = v1::V1::pack_msg(
             self.host,
             receiver.unwrap_or(self.target),
-            0,
+            seq,
             &cmd,
             need_ack,
         )?;
-
-        let seq = self.cmd_seq.next();
-
-        if !need_ack {
-            return Ok(None);
-        }
 
         let mut callback: Option<CmdCallback> = None;
 
@@ -248,6 +244,7 @@ fn handle_client_event(
                 let event = event_res.map_err(|_| Error::Other("msg chan broken".into()))?;
                 match event {
                     Event::Cmd { id, seq, data, callback } => {
+                        trace!(?id, seq, ?data, "event cmd");
                         trans.send(&data)?;
 
                         callbacks.insert((id, seq), (Instant::now(), callback));
