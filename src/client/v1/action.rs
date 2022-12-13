@@ -7,11 +7,11 @@ use crate::{
         v1::{
             action::{
                 ActionConfig, ActionHead, ActionSequence, ActionUpdateHead, V1Action,
-                V1ActionUpdate, ACTION_UPDATE_HEAD_SIZE,
+                ACTION_UPDATE_HEAD_SIZE,
             },
             Ident, Seq, V1,
         },
-        ActionState, Deserialize, ProtoAction, Raw,
+        ActionState, Deserialize, ProtoAction, ProtoPush, Raw,
     },
     util::chan::{unbounded, Rx},
     Error, Result,
@@ -71,7 +71,7 @@ impl ActionDispatcher {
             action,
         );
 
-        let update_ident = <A::Update as V1ActionUpdate>::IDENT;
+        let update_ident = <A::Update as ProtoPush<V1>>::IDENT;
 
         let (mut tx, rx) = unbounded();
         let callback: ActionCallback = Box::new(move |input| {

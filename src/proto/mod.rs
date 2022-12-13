@@ -49,6 +49,10 @@ pub trait ProtoMessage<C: Codec>: Serialize<C> {
     const IDENT: C::Ident;
 }
 
+pub trait ProtoPush<C: Codec>: Deserialize<C> {
+    const IDENT: C::Ident;
+}
+
 /// ProtoCommand: a simple request-response
 pub trait ProtoCommand<C: Codec>: ProtoMessage<C> {
     type Resp: Deserialize<C>;

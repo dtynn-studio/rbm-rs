@@ -8,7 +8,7 @@ macro_rules! impl_v1_msg {
 
 macro_rules! impl_v1_action_update {
     ($name:ident, $cset:ident, $cid:literal) => {
-        impl $crate::proto::v1::action::V1ActionUpdate for $name {
+        impl $crate::proto::ProtoPush<$crate::proto::v1::V1> for $name {
             const IDENT: $crate::proto::v1::Ident = ($cset, $cid);
         }
     };

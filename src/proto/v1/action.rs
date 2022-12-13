@@ -7,7 +7,7 @@ use super::{Ident, Seq, V1};
 use crate::{
     ensure_buf_size,
     proto::{
-        ActionState, Deserialize, ProtoAction, ProtoCommand, ProtoMessage, Serialize,
+        ActionState, Deserialize, ProtoAction, ProtoCommand, ProtoMessage, ProtoPush, Serialize,
         ToProtoMessage,
     },
     Result, RetCode,
@@ -148,13 +148,9 @@ impl Deserialize<V1> for (Seq, ActionUpdateHead) {
     }
 }
 
-pub trait V1ActionUpdate: Deserialize<V1> {
-    const IDENT: Ident;
-}
-
 pub trait V1Action: ToProtoMessage<V1> {
     const TARGET: Option<super::Receiver>;
-    type Update: V1ActionUpdate;
+    type Update: ProtoPush<V1>;
 
     fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool>;
 }

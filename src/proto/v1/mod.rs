@@ -12,6 +12,7 @@ use crate::{
 
 pub mod action;
 pub mod cset;
+pub mod subscribe;
 mod util;
 
 pub use util::*;
