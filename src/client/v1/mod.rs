@@ -13,7 +13,10 @@ use crate::{
 };
 
 mod action;
+mod subscribe;
+
 pub use action::*;
+pub use subscribe::*;
 
 type CmdCallback = Box<dyn FnOnce(Result<&Raw<v1::V1>>) + Send + 'static>;
 
@@ -169,6 +172,10 @@ impl super::Client<v1::V1> for Client {
             .recv()
             .map_err(|_e| Error::Other("unregister response chan broken".into()))
             .map(Ok)?
+    }
+
+    fn host(&self) -> v1::Sender {
+        self.host
     }
 }
 

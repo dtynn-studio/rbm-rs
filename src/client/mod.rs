@@ -40,4 +40,6 @@ pub trait Client<C: Codec>: Sized {
     ) -> Result<()>;
 
     fn unregister_raw_handler(&self, name: &str) -> Result<bool>;
+
+    fn host(&self) -> C::Sender;
 }

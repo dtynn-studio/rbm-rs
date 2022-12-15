@@ -17,7 +17,7 @@ use crate::{
     Error, Result,
 };
 
-const HANDLER_NAME: &str = "v1::actions::ActionDispatcher";
+const HANDLER_NAME: &str = "v1::ActionDispatcher";
 
 enum ActionCallbackInput<'a> {
     Update(ActionUpdateHead, &'a Raw<V1>, usize),

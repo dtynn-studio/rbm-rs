@@ -1,9 +1,11 @@
-use super::{Ident, V1};
+use super::{cset::CMD_SET_SUBSCRIBE, Ident, V1};
 use crate::{
     ensure_buf_size,
     proto::{Deserialize, ProtoPush},
     Result,
 };
+
+pub const PUSH_PERIOD_MSG_IDENT: Ident = (CMD_SET_SUBSCRIBE, 0x8);
 
 pub struct PushPeriodMsg {
     pub sub_mode: u8,
@@ -24,5 +26,5 @@ impl Deserialize<V1> for PushPeriodMsg {
 }
 
 impl ProtoPush<V1> for PushPeriodMsg {
-    const IDENT: Ident = (0x48, 0x8);
+    const IDENT: Ident = PUSH_PERIOD_MSG_IDENT;
 }

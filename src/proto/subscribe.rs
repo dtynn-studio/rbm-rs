@@ -4,5 +4,5 @@ use super::{Codec, Deserialize, ProtoCommand};
 /// be terminated until user unsub the events.
 pub trait ProtoSubscribe<C: Codec> {
     type Cmd: ProtoCommand<C>;
-    type Event: Deserialize<C>;
+    type Push: Deserialize<C>;
 }
