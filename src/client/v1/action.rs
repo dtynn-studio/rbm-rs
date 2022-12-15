@@ -57,7 +57,7 @@ impl ActionDispatcher {
     pub fn send<A: V1Action>(
         &self,
         cfg: Option<ActionConfig>,
-        action: &A,
+        action: &mut A,
     ) -> Result<Rx<(ActionUpdateHead, A::Update)>>
     where
         A::Update: Send + 'static,
@@ -68,7 +68,7 @@ impl ActionDispatcher {
                 id: seq as u8,
                 cfg: cfg.unwrap_or_default(),
             },
-            action,
+            &*action,
         );
 
         let update_ident = <A::Update as ProtoPush<V1>>::IDENT;
@@ -110,6 +110,8 @@ impl ActionDispatcher {
                 format!("action responsed: {:?}", state).into(),
             ));
         }
+
+        action.apply_state(state)?;
 
         Ok(rx)
     }

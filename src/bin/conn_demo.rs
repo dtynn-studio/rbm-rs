@@ -109,7 +109,7 @@ pub fn main() {
             chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
 
         let mut recv_rx = actions_dispatcher
-            .send(None, &move_action)
+            .send(None, &mut move_action)
             .expect("send move action cmd");
 
         while let Some(update) = recv_rx.recv() {

@@ -10,7 +10,7 @@ use crate::{
             cset::CMD_SET_CTRL,
             impl_v1_action_update, impl_v1_msg, Receiver, V1,
         },
-        Deserialize, Serialize, ToProtoMessage,
+        ActionState, Deserialize, Serialize, ToProtoMessage,
     },
     util::{host2byte, unit_convertor},
     Result,
@@ -67,6 +67,11 @@ impl ToProtoMessage<V1> for Move<ActionUpdateHead> {
 impl V1Action for Move<ActionUpdateHead> {
     const TARGET: Option<Receiver> = Some(host2byte(3, 6));
     type Update = PositionMoveUpdate;
+
+    fn apply_state(&mut self, state: ActionState) -> Result<()> {
+        self.status.state = state;
+        Ok(())
+    }
 
     fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool> {
         self.progress.x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.proto2val(update.1.pos_x)?;

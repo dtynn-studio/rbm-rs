@@ -152,6 +152,8 @@ pub trait V1Action: ToProtoMessage<V1> {
     const TARGET: Option<super::Receiver>;
     type Update: ProtoPush<V1>;
 
+    fn apply_state(&mut self, state: ActionState) -> Result<()>;
+
     fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool>;
 }
 
