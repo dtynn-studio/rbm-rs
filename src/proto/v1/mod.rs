@@ -15,7 +15,7 @@ pub mod cset;
 pub mod subscribe;
 mod util;
 
-pub use util::*;
+pub(crate) use util::*;
 
 const RM_SDK_FIRST_SEQ_ID: u16 = 10000;
 const RM_SDK_LAST_SEQ_ID: u16 = 20000;
@@ -46,7 +46,7 @@ impl Codec for V1 {
         need_ack: bool,
     ) -> Result<Vec<u8>> {
         let id = (M::IDENT, seq);
-        let size = MSG_HEADER_SIZE + M::SIZE_HINT;
+        let size = MSG_HEADER_SIZE + msg.size();
 
         let buf = Vec::with_capacity(size);
         let mut writer = Cursor::new(buf);

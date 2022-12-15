@@ -39,6 +39,11 @@ pub trait Serialize<C: Codec> {
     const SIZE_HINT: usize;
 
     fn ser(&self, w: &mut impl Write) -> Result<()>;
+
+    #[inline]
+    fn size(&self) -> usize {
+        Self::SIZE_HINT
+    }
 }
 
 pub trait Deserialize<C: Codec>: Sized {
