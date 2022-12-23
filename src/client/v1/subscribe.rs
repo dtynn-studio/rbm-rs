@@ -141,7 +141,7 @@ impl Subscriber {
                 }
 
                 SubscribeHandlerInput::Check => {
-                    if !tx.is_closed() {
+                    if tx.is_closed() {
                         return Err(Error::Other("push chan closed".into()));
                     }
                 }
@@ -188,7 +188,7 @@ impl Subscriber {
                 }
 
                 SubscribeHandlerInput::Check => {
-                    if !tx.is_closed() {
+                    if tx.is_closed() {
                         return Err(Error::Other("push chan closed".into()));
                     }
                 }

@@ -83,7 +83,7 @@ impl ActionDispatcher {
                 }
 
                 ActionCallbackInput::Check => {
-                    if !tx.is_closed() {
+                    if tx.is_closed() {
                         return Err(Error::Other("update chan closed".into()));
                     }
                 }
