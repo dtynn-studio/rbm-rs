@@ -53,6 +53,33 @@ pub const CHASSIS_SPEED_Z_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     unit: "°/s",
 };
 
+pub const CHASSIS_POS_X_SUB_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 5,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "",
+};
+
+pub const CHASSIS_POS_Y_SUB_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 5,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "",
+};
+
+pub const CHASSIS_POS_Z_SUB_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 2,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "",
+};
+
 pub const WHEEL_SPD_CONVERTOR: UnitConvertor<i16> = UnitConvertor {
     start: Some(-1000),
     end: Some(1000),
