@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::proto::Deserialize;
 use crate::{
@@ -87,10 +87,7 @@ impl<S: PushPeriodSubject> PushSubscription<S> {
             ..Default::default()
         };
 
-        let _ = self
-            .client
-            .send_cmd(Some(CMD_RECEIVER), unsub_msg, true)?
-            .ok_or_else(|| Error::Other("response required for sub msg".into()))?;
+        let _ = self.client.send_cmd(Some(CMD_RECEIVER), unsub_msg, false)?;
 
         Ok(())
     }
@@ -129,6 +126,7 @@ impl Subscriber {
         S: PushPeriodSubject + Send + 'static,
     {
         let msg_id = self.seq.next();
+        trace!(?msg_id, "sub msg id");
         let sub_msg = SubMsg::single(self.client.host(), msg_id, cfg.unwrap_or_default(), S::UID);
 
         let (mut tx, rx) = unbounded();

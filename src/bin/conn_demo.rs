@@ -8,11 +8,18 @@ use rbm_rs::{
     client::{self, transport, Client},
     module::{chassis, common, robot},
     network::{ConnectionType, NetworkType},
-    proto::v1::action::{ActionUpdateHead, V1Action},
+    proto::{
+        v1::{
+            action::{ActionUpdateHead, V1Action},
+            subscribe::SubNodeReset,
+        },
+        ProtoSubscribe,
+    },
     util::host2byte,
 };
 
-use tracing::{info, warn};
+use crossbeam_channel::{bounded, select};
+use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 pub fn main() {
@@ -93,10 +100,77 @@ pub fn main() {
     // set robot mode
     {
         info!("set robot mode");
+        let msg = SubNodeReset {
+            node_id: device_client.host(),
+        };
+        let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, true);
+        info!("resp: {:?}", resp);
+    }
+
+    // reset sub nodes
+    {
+        info!("reset sub nodes");
         let msg = robot::proto::cmd::Mode::Free;
         let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, true);
         info!("resp: {:?}", resp);
     }
+
+    let subscriber =
+        client::v1::Subscriber::new(device_client.clone()).expect("construct subscriber");
+
+    let mut pos = chassis::proto::subscribe::Position::new(
+        chassis::proto::subscribe::PositionOriginMode::Current,
+    );
+
+    let mut subscription = subscriber
+        .subscribe_period_push::<chassis::proto::subscribe::PositionPush>(None)
+        .expect("sub position updates");
+
+    let (all_done_tx, all_done_rx) = bounded::<()>(0);
+
+    let join = std::thread::spawn(move || {
+        // chassis position
+        {
+            let mut count = 0;
+            loop {
+                select! {
+                    recv(subscription.rx.inner()) -> incoming_rx => {
+                        info!("recv incoming position update");
+                        let incoming = match incoming_rx {
+                            Ok(i) => i,
+                            Err(e) => {
+                                error!("error incoming {:?}", e);
+                                continue;
+                            }
+                        };
+
+                        count += 1;
+
+                        pos.apply_push(incoming).unwrap_or_else(|e| {
+                            panic!(
+                                "applying incoming update #{} {:?}: {:?}",
+                                count, incoming, e
+                            )
+                        });
+
+                        info!("applied position: {:?}", pos.current);
+
+                        if count == 10 {
+                            break;
+                        }
+                    }
+
+                    recv(all_done_rx) -> _ => {
+                        break;
+                    }
+                }
+            }
+            // while let Some(incoming) = subscription.rx.recv() {
+            // }
+
+            drop(subscription);
+        }
+    });
 
     // actions
     let actions_dispatcher =
@@ -128,5 +202,8 @@ pub fn main() {
         }
     }
 
+    std::thread::sleep(std::time::Duration::from_secs(5));
+    drop(all_done_tx);
+    join.join().expect("position sub thread join");
     info!("all things done");
 }

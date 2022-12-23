@@ -5,7 +5,7 @@ use byteorder::{WriteBytesExt, LE};
 
 use super::{cset::CMD_SET_SUBSCRIBE, impl_v1_cmd, Ident, RetOK, V1};
 use crate::{
-    ensure_buf_size,
+    ensure_buf_size, ensure_ok,
     proto::{Deserialize, ProtoPush, Serialize},
     Error, Result, RetCode,
 };
@@ -65,6 +65,7 @@ pub struct SubMsgResp {
 
 impl Deserialize<V1> for SubMsgResp {
     fn de(buf: &[u8]) -> Result<Self> {
+        ensure_ok!(buf);
         ensure_buf_size!(buf, 8);
         Ok(Self {
             ret: RetCode::from(buf[0]),

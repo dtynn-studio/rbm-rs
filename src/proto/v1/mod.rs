@@ -63,7 +63,15 @@ impl Codec for V1 {
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
-        writer.write_u8((need_ack as u8) << 5)?; // #8
+        // as
+        // #[repr(u8)]
+        // #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+        // pub enum DussMBAck {
+        //     No = 0,
+        //     Now = 1,
+        //     Finish = 2,
+        // }
+        writer.write_u8((if need_ack { 2 } else { 0 }) << 5)?; // #8
 
         // encode proto
         writer.write_u8(id.0 .0)?; // #9
