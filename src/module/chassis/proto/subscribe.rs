@@ -3,7 +3,7 @@ use std::io::Cursor;
 use byteorder::{ReadBytesExt, LE};
 
 use crate::{
-    module::dds::Uid,
+    module::common::constant::v1::Uid,
     proto::{
         v1::{subscribe::PushPeriodSubject, V1},
         Deserialize, ProtoSubscribe,

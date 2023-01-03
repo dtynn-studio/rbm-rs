@@ -1,21 +1,40 @@
-#[repr(u64)]
-pub enum Uid {
-    Battery = 0x000200096862229f,
-    GimbalBase = 0x00020009f5882874,
-    Velocity = 0x0002000949a4009c,
-    Esc = 0x00020009c14cb7c5,
-    Attitude = 0x000200096b986306,
-    Imu = 0x00020009a7985b8d,
-    Position = 0x00020009eeb7cece,
-    SaStatus = 0x000200094a2c6d55,
-    ChassisMode = 0x000200094fcb1146,
-    Sbus = 0x0002000988223568,
-    Servo = 0x000200095f0059e7,
-    Arm = 0x0002000926abd64d,
-    Gripper = 0x00020009124d156a,
-    GimbalPos = 0x00020009f79b3c97,
-    Stick = 0x0002000955e9a0fa,
-    MoveMode = 0x00020009784c7bfd,
-    Tof = 0x0002000986e4c05a,
-    Pinboard = 0x00020009eebb9ffc,
+use std::sync::Arc;
+
+use crate::{
+    client::Client,
+    module::common::constant::v1::DEFAULT_TARGET,
+    proto::{v1::V1, Codec},
+    Result,
+};
+
+pub mod proto;
+use proto::cmd::{NodeAdd, NodeReset};
+
+pub struct DDS<CODEC: Codec, C: Client<CODEC>> {
+    client: Arc<C>,
+
+    _codec: std::marker::PhantomData<CODEC>,
+}
+
+impl<C: Client<V1>> DDS<V1, C> {
+    pub fn reset(&mut self) -> Result<()> {
+        self.sub_node_reset()?;
+        self.sub_add_node()
+    }
+
+    fn sub_node_reset(&mut self) -> Result<()> {
+        let msg = NodeReset {
+            node_id: self.client.host(),
+        };
+
+        self.client.send_cmd_sync(DEFAULT_TARGET, msg)?;
+
+        Ok(())
+    }
+
+    fn sub_add_node(&mut self) -> Result<()> {
+        self.client
+            .send_cmd_sync(DEFAULT_TARGET, NodeAdd::new(self.client.host()))?;
+        Ok(())
+    }
 }

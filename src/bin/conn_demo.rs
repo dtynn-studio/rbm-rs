@@ -6,13 +6,11 @@ use std::{
 
 use rbm_rs::{
     client::{self, transport, Client},
-    module::{chassis, common, robot},
+    module::{chassis, common, dds::proto::cmd::NodeReset as SubNodeReset},
     network::{ConnectionType, NetworkType},
+    product::robot,
     proto::{
-        v1::{
-            action::{ActionUpdateHead, V1Action},
-            subscribe::SubNodeReset,
-        },
+        v1::action::{ActionUpdateHead, V1Action},
         ProtoSubscribe,
     },
     util::host2byte,
@@ -97,9 +95,9 @@ pub fn main() {
         info!("resp: {:?}", resp);
     }
 
-    // set robot mode
+    // reset sub nodes
     {
-        info!("set robot mode");
+        info!("reset sub nodes");
         let msg = SubNodeReset {
             node_id: device_client.host(),
         };
@@ -107,9 +105,9 @@ pub fn main() {
         info!("resp: {:?}", resp);
     }
 
-    // reset sub nodes
+    // set robot mode
     {
-        info!("reset sub nodes");
+        info!("set robot mode");
         let msg = robot::proto::cmd::Mode::Free;
         let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, true);
         info!("resp: {:?}", resp);

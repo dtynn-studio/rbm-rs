@@ -25,6 +25,7 @@ pub struct MoveProgress {
 
 #[derive(Debug)]
 pub struct Move<S: Default> {
+    dest: MoveProgress,
     spd_xy: f32,
     spd_z: f32,
 
@@ -35,9 +36,10 @@ pub struct Move<S: Default> {
 impl<S: Default> Move<S> {
     pub fn new(x: f32, y: f32, z: f32, spd_xy: f32, spd_z: f32) -> Self {
         Move {
+            dest: MoveProgress { x, y, z },
             spd_xy,
             spd_z,
-            progress: MoveProgress { x, y, z },
+            progress: Default::default(),
             status: Default::default(),
         }
     }
@@ -47,9 +49,9 @@ impl ToProtoMessage<V1> for Move<ActionUpdateHead> {
     type Message = PositionMove;
 
     fn to_proto_message(&self) -> Result<Self::Message> {
-        let pos_x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.val2proto(self.progress.x)?;
-        let pos_y = unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.val2proto(self.progress.y)?;
-        let pos_z = unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.val2proto(self.progress.z)?;
+        let pos_x = unit_convertor::CHASSIS_POS_X_SET_CONVERTOR.val2proto(self.dest.x)?;
+        let pos_y = unit_convertor::CHASSIS_POS_Y_SET_CONVERTOR.val2proto(self.dest.y)?;
+        let pos_z = unit_convertor::CHASSIS_POS_Z_SET_CONVERTOR.val2proto(self.dest.z)?;
         let vel_xy_max = unit_convertor::CHASSIS_SPEED_XY_SET_CONVERTOR.val2proto(self.spd_xy)?;
         let agl_omg_max = unit_convertor::CHASSIS_SPEED_Z_SET_CONVERTOR.val2proto(self.spd_z)?;
 
