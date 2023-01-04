@@ -1,5 +1,6 @@
 use crate::{
-    proto::{Codec, ProtoCommand, Raw},
+    proto::{Codec, ProtoAction, ProtoCommand, ProtoPush, ProtoSubscribe, Raw},
+    util::chan::Rx,
     Error, Result,
 };
 
@@ -70,4 +71,32 @@ pub trait Connection<C: Codec>: Sized {
     fn unregister_raw_handler(&self, name: &str) -> Result<bool>;
 
     fn host(&self) -> C::Sender;
+}
+
+pub type ActionDispatchResponse<C, PA> = (
+    <<PA as ProtoAction<C>>::Cmd as ProtoCommand<C>>::Resp,
+    Rx<(
+        <C as Codec>::ActionUpdateHead,
+        <PA as ProtoAction<C>>::Update,
+    )>,
+);
+
+pub trait ActionDispatcher<C: Codec> {
+    fn send<PA: ProtoAction<C>>(
+        &self,
+        cfg: Option<C::ActionConfig>,
+        action: &PA,
+    ) -> Result<ActionDispatchResponse<C, PA>>;
+}
+
+pub trait Subscription<C: Codec> {}
+
+pub trait Subscriber<C: Codec, S: Subscription<C>> {
+    fn subscribe_period_push<PS: ProtoSubscribe<C>>(
+        &self,
+        cfg: Option<C::SubscribeConfig>,
+        sid: C::SubscribeID,
+    ) -> Result<(Rx<PS::Push>, S)>;
+
+    fn subscribe_event<P: ProtoPush<C>>(&self, rx: Rx<P>) -> Result<S>;
 }

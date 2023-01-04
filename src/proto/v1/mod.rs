@@ -38,6 +38,12 @@ impl Codec for V1 {
     type Ident = Ident;
     type Seq = Seq;
 
+    type ActionConfig = action::ActionConfig;
+    type ActionUpdateHead = action::ActionUpdateHead;
+
+    type SubscribeConfig = subscribe::SubConfig;
+    type SubscribeID = u64;
+
     fn pack_msg<M: ProtoMessage<Self>>(
         sender: Self::Sender,
         receiver: Self::Receiver,

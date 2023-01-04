@@ -24,6 +24,12 @@ pub trait Codec: Sized {
     type Ident;
     type Seq;
 
+    type ActionConfig;
+    type ActionUpdateHead;
+
+    type SubscribeConfig;
+    type SubscribeID;
+
     fn pack_msg<M: ProtoMessage<Self>>(
         sender: Self::Sender,
         receiver: Self::Receiver,
