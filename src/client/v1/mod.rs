@@ -40,7 +40,7 @@ enum Event {
     },
 }
 
-pub struct Client {
+pub struct Connection {
     host: v1::Sender,
     target: v1::Receiver,
     cmd_seq: v1::CmdSequence,
@@ -49,7 +49,7 @@ pub struct Client {
     join: Option<thread::JoinHandle<()>>,
 }
 
-impl Drop for Client {
+impl Drop for Connection {
     fn drop(&mut self) {
         drop(self.done_tx.take());
         if let Some(join) = self.join.take() {
@@ -59,7 +59,7 @@ impl Drop for Client {
     }
 }
 
-impl super::Client<v1::V1> for Client {
+impl super::Connection<v1::V1> for Connection {
     fn new(
         tx: Box<dyn super::TransportTx>,
         rxs: Vec<Box<dyn super::TransportRx>>,

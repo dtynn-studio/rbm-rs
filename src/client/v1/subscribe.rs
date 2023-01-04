@@ -5,7 +5,7 @@ use tracing::{trace, warn};
 
 use crate::proto::Deserialize;
 use crate::{
-    client::{v1::Client as V1Client, Client, RawHandler},
+    client::{v1::Connection as V1Connection, Connection, RawHandler},
     proto::{
         v1::{
             subscribe::{
@@ -30,7 +30,7 @@ pub struct PushSubscription<S: PushPeriodSubject> {
     pub rx: Rx<S>,
     msg_id: u8,
     handlers: Arc<SubscribeHandlers>,
-    client: Arc<V1Client>,
+    client: Arc<V1Connection>,
 }
 
 pub struct EventSubscription {
@@ -96,7 +96,7 @@ impl<S: PushPeriodSubject> PushSubscription<S> {
 pub struct Subscriber {
     seq: SubscribeSequence,
     handlers: Arc<SubscribeHandlers>,
-    client: Arc<V1Client>,
+    client: Arc<V1Connection>,
 }
 
 impl Drop for Subscriber {
@@ -106,7 +106,7 @@ impl Drop for Subscriber {
 }
 
 impl Subscriber {
-    pub fn new(client: Arc<V1Client>) -> Result<Self> {
+    pub fn new(client: Arc<V1Connection>) -> Result<Self> {
         let handlers: Arc<SubscribeHandlers> = Default::default();
 
         client.register_raw_handler(HANDLER_NAME, handlers.clone())?;

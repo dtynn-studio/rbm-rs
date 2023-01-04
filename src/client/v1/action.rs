@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    client::{v1::Client as V1Client, Client, RawHandler},
+    client::{v1::Connection as V1Connection, Connection, RawHandler},
     proto::{
         v1::{
             action::{
@@ -31,7 +31,7 @@ struct ActionCallbacks(Mutex<HashMap<(Ident, Seq), ActionCallback>>);
 
 pub struct ActionDispatcher {
     seq: ActionSequence,
-    client: Arc<V1Client>,
+    client: Arc<V1Connection>,
     callbacks: Arc<ActionCallbacks>,
 }
 
@@ -42,7 +42,7 @@ impl Drop for ActionDispatcher {
 }
 
 impl ActionDispatcher {
-    pub fn new(client: Arc<V1Client>) -> Result<Self> {
+    pub fn new(client: Arc<V1Connection>) -> Result<Self> {
         let callbacks: Arc<ActionCallbacks> = Default::default();
 
         client.register_raw_handler(HANDLER_NAME, callbacks.clone())?;

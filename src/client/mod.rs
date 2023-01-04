@@ -15,7 +15,7 @@ pub trait RawHandler<C: Codec> {
     fn gc(&self) -> Result<()>;
 }
 
-pub trait Client<C: Codec>: Sized {
+pub trait Connection<C: Codec>: Sized {
     fn new(
         tx: Box<dyn TransportTx>,
         rxs: Vec<Box<dyn TransportRx>>,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    client::Client,
+    client::Connection,
     module::{
         common::{constant::v1::DEFAULT_TARGET, Common},
         dds::DDS,
@@ -15,7 +15,7 @@ pub mod proto;
 use proto::cmd;
 
 // TODO: heartbeat
-pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
+pub struct RobotMasterEP<CODEC: Codec, C: Connection<CODEC>> {
     client: Arc<C>,
 
     pub common: Common<CODEC, C>,
@@ -23,7 +23,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub dds: DDS<CODEC, C>,
 }
 
-impl<C: Client<V1>> RobotMasterEP<V1, C> {
+impl<C: Connection<V1>> RobotMasterEP<V1, C> {
     pub fn reset(&mut self) -> Result<()> {
         self.dds.reset()?;
         self.set_robot_mode(cmd::Mode::Free)?;

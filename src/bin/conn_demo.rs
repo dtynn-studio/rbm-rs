@@ -5,7 +5,7 @@ use std::{
 };
 
 use rbm_rs::{
-    client::{self, transport, Client},
+    client::{self, transport, Connection},
     module::{chassis, common, dds::proto::cmd::NodeReset as SubNodeReset},
     network::{ConnectionType, NetworkType},
     product::robot,
@@ -56,8 +56,9 @@ pub fn main() {
         let (rx, rx_closer) =
             transport::udp::trans_rx(socket.clone()).expect("construct udp trans rx");
         let tx = transport::udp::trans_tx_to(socket.clone(), detect_addr);
-        let detect_client = client::v1::Client::new(tx, vec![rx], vec![rx_closer], host, target)
-            .expect("construct v1 detect client");
+        let detect_client =
+            client::v1::Connection::new(tx, vec![rx], vec![rx_closer], host, target)
+                .expect("construct v1 detect client");
 
         let detect_req = common::proto::cmd::SetSdkConnection {
             host,
@@ -76,7 +77,7 @@ pub fn main() {
 
     let (rx, rx_closer) = transport::udp::trans_rx(socket.clone()).expect("construct udp trans rx");
     let tx = transport::udp::trans_tx_to(socket, device_addr);
-    let device_client = client::v1::Client::new(tx, vec![rx], vec![rx_closer], host, target)
+    let device_client = client::v1::Connection::new(tx, vec![rx], vec![rx_closer], host, target)
         .map(Arc::new)
         .expect("construct v1 device client");
 

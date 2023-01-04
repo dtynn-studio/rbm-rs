@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    client::Client,
+    client::Connection,
     module::common::constant::v1::DEFAULT_TARGET,
     proto::{v1::V1, Codec},
     Result,
@@ -10,13 +10,13 @@ use crate::{
 pub mod proto;
 use proto::cmd::{NodeAdd, NodeReset};
 
-pub struct DDS<CODEC: Codec, C: Client<CODEC>> {
+pub struct DDS<CODEC: Codec, C: Connection<CODEC>> {
     client: Arc<C>,
 
     _codec: std::marker::PhantomData<CODEC>,
 }
 
-impl<C: Client<V1>> DDS<V1, C> {
+impl<C: Connection<V1>> DDS<V1, C> {
     pub fn reset(&mut self) -> Result<()> {
         self.sub_node_reset()?;
         self.sub_add_node()

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    client::Client,
+    client::Connection,
     proto::{
         v1::{action::ActionUpdateHead, Receiver, V1},
         Codec,
@@ -13,7 +13,7 @@ use crate::{
 pub mod proto;
 use proto::{action::Move, cmd::StickOverlayMode};
 
-pub struct Chassis<CODEC: Codec, C: Client<CODEC>> {
+pub struct Chassis<CODEC: Codec, C: Connection<CODEC>> {
     client: Arc<C>,
 
     _codec: std::marker::PhantomData<CODEC>,
@@ -21,7 +21,7 @@ pub struct Chassis<CODEC: Codec, C: Client<CODEC>> {
 
 const CHASSIS_TARGET_V1: Option<Receiver> = Some(host2byte(3, 6));
 
-impl<C: Client<V1>> Chassis<V1, C> {
+impl<C: Connection<V1>> Chassis<V1, C> {
     pub fn set_stick_overlay(&mut self, mode: StickOverlayMode) -> Result<()> {
         self.client.send_cmd_sync(CHASSIS_TARGET_V1, mode)?;
         Ok(())

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    client::Client,
+    client::Connection,
     proto::{
         v1::{Receiver, V1},
         Codec,
@@ -16,7 +16,7 @@ use constant::v1::DEFAULT_TARGET;
 pub mod proto;
 use proto::cmd::{EnableSdkMode, GetProductVersion, GetSN};
 
-pub struct Common<CODEC: Codec, C: Client<CODEC>> {
+pub struct Common<CODEC: Codec, C: Connection<CODEC>> {
     client: Arc<C>,
 
     _codec: std::marker::PhantomData<CODEC>,
@@ -24,7 +24,7 @@ pub struct Common<CODEC: Codec, C: Client<CODEC>> {
 
 const COMMON_TARGET_V1: Option<Receiver> = Some(host2byte(8, 1));
 
-impl<C: Client<V1>> Common<V1, C> {
+impl<C: Connection<V1>> Common<V1, C> {
     pub fn version(&mut self) -> Result<(u8, u8, u16)> {
         let resp = self
             .client
