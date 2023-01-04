@@ -6,8 +6,7 @@ use crate::{
     proto::{
         v1::{
             action::{
-                ActionConfig, ActionHead, ActionSequence, ActionUpdateHead, V1Action,
-                ACTION_UPDATE_HEAD_SIZE,
+                ActionConfig, ActionHead, ActionSequence, ActionUpdateHead, ACTION_UPDATE_HEAD_SIZE,
             },
             Ident, Seq, V1,
         },
@@ -54,7 +53,7 @@ impl ActionDispatcher {
         })
     }
 
-    pub fn send<A: V1Action>(
+    pub fn send<A: ProtoAction<V1>>(
         &self,
         cfg: Option<ActionConfig>,
         action: &mut A,
@@ -63,12 +62,13 @@ impl ActionDispatcher {
         A::Update: Send + 'static,
     {
         let seq = self.seq.next();
+        let msg = action.to_proto_message()?;
         let wrapped = (
             ActionHead {
                 id: seq as u8,
                 cfg: cfg.unwrap_or_default(),
             },
-            &*action,
+            msg,
         );
 
         let update_ident = <A::Update as ProtoPush<V1>>::IDENT;
@@ -98,10 +98,9 @@ impl ActionDispatcher {
             .map(|mut cbs| cbs.insert((update_ident, seq), callback))
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 
-        let cmd = wrapped.pack_cmd()?;
         let resp = self
             .client
-            .send_cmd(A::TARGET, cmd, true)?
+            .send_cmd(A::TARGET, wrapped, true)?
             .ok_or_else(|| Error::Other("response required but not received".into()))?;
 
         let state: ActionState = resp.into();

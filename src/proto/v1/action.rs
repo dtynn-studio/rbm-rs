@@ -6,10 +6,7 @@ use byteorder::WriteBytesExt;
 use super::{Ident, Seq, V1};
 use crate::{
     ensure_buf_size,
-    proto::{
-        ActionState, Deserialize, ProtoAction, ProtoCommand, ProtoMessage, ProtoPush, Serialize,
-        ToProtoMessage,
-    },
+    proto::{ActionState, Deserialize, ProtoCommand, ProtoMessage, ProtoPush, Serialize},
     Result, RetCode,
 };
 
@@ -148,15 +145,6 @@ impl Deserialize<V1> for (Seq, ActionUpdateHead) {
     }
 }
 
-pub trait V1Action: ToProtoMessage<V1> {
-    const TARGET: Option<super::Receiver>;
-    type Update: ProtoPush<V1>;
-
-    fn apply_state(&mut self, state: ActionState) -> Result<()>;
-
-    fn apply_update(&mut self, update: (ActionUpdateHead, Self::Update)) -> Result<bool>;
-}
-
 impl<T: ProtoMessage<V1>> Serialize<V1> for (ActionHead, T) {
     const SIZE_HINT: usize = T::SIZE_HINT + ActionHead::SIZE_HINT;
 
@@ -179,15 +167,5 @@ impl<T: Deserialize<V1>> Deserialize<V1> for ((Seq, ActionUpdateHead), T) {
         let (seq, head): (Seq, ActionUpdateHead) = Deserialize::de(buf)?;
         let update: T = Deserialize::de(&buf[ACTION_UPDATE_HEAD_SIZE..])?;
         Ok(((seq, head), update))
-    }
-}
-
-impl<'a, A: V1Action> ProtoAction<V1> for (ActionHead, &'a A) {
-    const TARGET: Option<super::Receiver> = A::TARGET;
-    type Cmd = (ActionHead, A::Message);
-    type Update = A::Update;
-
-    fn pack_cmd(&self) -> Result<Self::Cmd> {
-        self.1.to_proto_message().map(|msg| (self.0, msg))
     }
 }

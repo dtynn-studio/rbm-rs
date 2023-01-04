@@ -1,15 +1,16 @@
-use super::{Codec, Deserialize, ProtoCommand};
+use super::{Codec, ProtoPush, ToProtoMessage};
 use crate::{Error, Result};
 
 /// Action: a command to the target with a batch of updates from the target until the action is
 /// done.
-pub trait ProtoAction<C: Codec> {
-    type Cmd: ProtoCommand<C>;
-    type Update: Deserialize<C>;
+pub trait ProtoAction<C: Codec>: ToProtoMessage<C> {
+    type Update: ProtoPush<C> + Send + 'static;
 
     const TARGET: Option<C::Receiver>;
 
-    fn pack_cmd(&self) -> Result<Self::Cmd>;
+    fn apply_state(&mut self, state: ActionState) -> Result<()>;
+
+    fn apply_update(&mut self, update: (C::ActionUpdateHead, Self::Update)) -> Result<bool>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

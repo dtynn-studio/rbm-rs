@@ -9,10 +9,7 @@ use rbm_rs::{
     module::{chassis, common, dds::proto::cmd::NodeReset as SubNodeReset},
     network::{ConnectionType, NetworkType},
     product::robot,
-    proto::{
-        v1::action::{ActionUpdateHead, V1Action},
-        ProtoSubscribe,
-    },
+    proto::{v1::action::ActionUpdateHead, ProtoSubscribe},
     util::host2byte,
 };
 
@@ -177,28 +174,28 @@ pub fn main() {
 
     // move action
     {
-        info!("start move action");
-        let mut move_action =
-            chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
+        // info!("start move action");
+        // let mut move_action =
+        //     chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
 
-        let mut recv_rx = actions_dispatcher
-            .send(None, &mut move_action)
-            .expect("send move action cmd");
+        // let mut recv_rx = actions_dispatcher
+        //     .send(None, &mut move_action)
+        //     .expect("send move action cmd");
 
-        while let Some(update) = recv_rx.recv() {
-            match move_action.apply_update(update) {
-                Ok(done) => {
-                    info!("move progress: {:?}", move_action.progress);
-                    if done {
-                        break;
-                    }
-                }
+        // while let Some(update) = recv_rx.recv() {
+        //     match move_action.apply_update(update) {
+        //         Ok(done) => {
+        //             info!("move progress: {:?}", move_action.progress);
+        //             if done {
+        //                 break;
+        //             }
+        //         }
 
-                Err(e) => {
-                    warn!("apply move update: {:?}", e);
-                }
-            }
-        }
+        //         Err(e) => {
+        //             warn!("apply move update: {:?}", e);
+        //         }
+        //     }
+        // }
     }
 
     std::thread::sleep(std::time::Duration::from_secs(5));

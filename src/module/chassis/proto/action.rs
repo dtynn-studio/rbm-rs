@@ -6,11 +6,10 @@ use crate::{
     ensure_buf_size,
     proto::{
         v1::{
-            action::{ActionUpdateHead, V1Action},
-            cset::CMD_SET_CTRL,
-            impl_v1_action_update, impl_v1_msg, Receiver, V1,
+            action::ActionUpdateHead, cset::CMD_SET_CTRL, impl_v1_action_update, impl_v1_msg,
+            Receiver, V1,
         },
-        ActionState, Deserialize, Serialize, ToProtoMessage,
+        ActionState, Deserialize, ProtoAction, Serialize, ToProtoMessage,
     },
     util::{host2byte, unit_convertor},
     Result,
@@ -66,7 +65,7 @@ impl ToProtoMessage<V1> for Move<ActionUpdateHead> {
     }
 }
 
-impl V1Action for Move<ActionUpdateHead> {
+impl ProtoAction<V1> for Move<ActionUpdateHead> {
     const TARGET: Option<Receiver> = Some(host2byte(3, 6));
     type Update = PositionMoveUpdate;
 

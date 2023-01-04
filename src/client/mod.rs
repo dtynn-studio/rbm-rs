@@ -45,20 +45,17 @@ pub trait Connection<C: Codec>: Sized {
     fn host(&self) -> C::Sender;
 }
 
-pub type ActionDispatchResponse<C, PA> = (
-    <<PA as ProtoAction<C>>::Cmd as ProtoCommand<C>>::Resp,
-    Rx<(
-        <C as Codec>::ActionUpdateHead,
-        <PA as ProtoAction<C>>::Update,
-    )>,
-);
-
 pub trait ActionDispatcher<C: Codec> {
     fn send<PA: ProtoAction<C>>(
         &self,
         cfg: Option<C::ActionConfig>,
-        action: &PA,
-    ) -> Result<ActionDispatchResponse<C, PA>>;
+        action: &mut PA,
+    ) -> Result<
+        Rx<(
+            <C as Codec>::ActionUpdateHead,
+            <PA as ProtoAction<C>>::Update,
+        )>,
+    >;
 }
 
 pub trait Subscription<C: Codec> {
