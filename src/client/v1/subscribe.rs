@@ -11,8 +11,7 @@ use crate::{
     proto::{
         v1::{
             subscribe::{
-                PushPeriodMsg, SubConfig, SubMsg, SubscribeSequence, UnsubMsg,
-                PUSH_PERIOD_MSG_IDENT,
+                PushPeriodMsg, SubFreq, SubMsg, SubscribeSequence, UnsubMsg, PUSH_PERIOD_MSG_IDENT,
             },
             Ident, V1,
         },
@@ -114,7 +113,7 @@ impl Subscriber {
 
     pub fn subscribe_period_push<S: ProtoSubscribe<V1>>(
         &self,
-        cfg: Option<SubConfig>,
+        cfg: Option<SubFreq>,
     ) -> Result<(Rx<S::Push>, Box<dyn SubscriptionTrait<V1>>)> {
         let sid = S::SID;
         let msg_id = self.seq.next();

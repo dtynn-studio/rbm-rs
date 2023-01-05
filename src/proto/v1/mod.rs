@@ -41,7 +41,7 @@ impl Codec for V1 {
     type ActionConfig = action::ActionConfig;
     type ActionUpdateHead = action::ActionUpdateHead;
 
-    type SubscribeConfig = subscribe::SubConfig;
+    type SubscribeConfig = subscribe::SubFreq;
     type SubscribeID = u64;
 
     fn pack_msg<M: ProtoMessage<Self>>(

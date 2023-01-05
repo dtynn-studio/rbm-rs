@@ -27,11 +27,6 @@ impl SubscribeSequence {
     }
 }
 
-#[derive(Default)]
-pub struct SubConfig {
-    pub freq: SubFreq,
-}
-
 #[derive(Debug, Clone, Copy)]
 #[repr(u16)]
 pub enum SubFreq {
@@ -88,12 +83,12 @@ pub struct SubMsg {
 }
 
 impl SubMsg {
-    pub fn single(node_id: u8, msg_id: u8, cfg: SubConfig, uid: u64) -> Self {
+    pub fn single(node_id: u8, msg_id: u8, cfg: SubFreq, uid: u64) -> Self {
         Self {
             node_id,
             msg_id,
             sub_uid_list: vec![uid],
-            sub_freq: cfg.freq,
+            sub_freq: cfg,
             ..Default::default()
         }
     }

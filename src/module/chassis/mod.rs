@@ -1,17 +1,23 @@
 use std::sync::Arc;
 
+use tracing::trace;
+
 use crate::{
-    client::Client,
+    client::{Client, Subscription},
     proto::{
-        v1::{action::ActionUpdateHead, Receiver, V1},
-        Codec,
+        v1::{action::ActionUpdateHead, subscribe::SubFreq, Receiver, V1},
+        Codec, ProtoAction,
     },
-    util::host2byte,
+    util::{chan::Rx, host2byte},
     Result,
 };
 
 pub mod proto;
-use proto::{action::Move, cmd::StickOverlayMode};
+pub use proto::{
+    action::Move,
+    cmd::StickOverlayMode,
+    subscribe::{Position, PositionOriginMode, PositionPush},
+};
 
 pub struct Chassis<CODEC: Codec, C: Client<CODEC>> {
     client: Arc<C>,
@@ -27,6 +33,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         Ok(())
     }
 
+    // TODO: timeout?
     pub fn move_to(
         &mut self,
         x: f32,
@@ -35,13 +42,33 @@ impl<C: Client<V1>> Chassis<V1, C> {
         xy_speed: Option<f32>,
         z_speed: Option<f32>,
     ) -> Result<()> {
-        let action = Move::<ActionUpdateHead>::new(
+        let mut action = Move::<ActionUpdateHead>::new(
             x,
             y,
             z,
             xy_speed.unwrap_or(0.5),
             z_speed.unwrap_or(30.0),
         );
-        unimplemented!()
+
+        let mut rx = self.client.send_action(None, &mut action)?;
+
+        while let Some(update) = rx.recv() {
+            let done = action.apply_update(update)?;
+            trace!("move progress: {:?}", action.progress);
+            if done {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn subscribe_position(
+        &mut self,
+        origin: PositionOriginMode,
+        freq: Option<SubFreq>,
+    ) -> Result<(Position, Rx<PositionPush>, Box<dyn Subscription<V1>>)> {
+        let (pos_rx, sub) = self.client.subscribe_period_push::<Position>(freq)?;
+        Ok((Position::new(origin), pos_rx, sub))
     }
 }
