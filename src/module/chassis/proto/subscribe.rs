@@ -4,10 +4,7 @@ use byteorder::{ReadBytesExt, LE};
 
 use crate::{
     module::common::constant::v1::Uid,
-    proto::{
-        v1::{subscribe::PushPeriodSubject, V1},
-        Deserialize, ProtoSubscribe,
-    },
+    proto::{v1::V1, Deserialize, ProtoSubscribe},
     util::unit_convertor,
     Result,
 };
@@ -35,6 +32,8 @@ impl Position {
 }
 
 impl ProtoSubscribe<V1> for Position {
+    const SID: u64 = Uid::Position as u64;
+
     type Push = PositionPush;
 
     fn apply_push(&mut self, mut push: Self::Push) -> Result<()> {
@@ -68,8 +67,4 @@ impl Deserialize<V1> for PositionPush {
         let z = reader.read_f32::<LE>()?;
         Ok(Self { x, y, z })
     }
-}
-
-impl PushPeriodSubject for PositionPush {
-    const UID: u64 = Uid::Position as u64;
 }

@@ -1,6 +1,6 @@
 use crate::{
     proto::{Codec, ProtoAction, ProtoCommand, ProtoPush, ProtoSubscribe, Raw},
-    util::chan::Rx,
+    util::chan::{Rx, Tx},
     Error, Result,
 };
 
@@ -17,22 +17,12 @@ pub trait RawHandler<C: Codec> {
 }
 
 pub trait Connection<C: Codec>: Sized {
-    fn new(
-        tx: Box<dyn TransportTx>,
-        rxs: Vec<Box<dyn TransportRx>>,
-        closers: Vec<Box<dyn TransportRxCloser>>,
-        host: C::Sender,
-        target: C::Receiver,
-    ) -> Result<Self>;
-
     fn send_cmd<CMD: ProtoCommand<C>>(
         &self,
         receiver: Option<C::Receiver>,
         cmd: CMD,
         need_ack: bool,
-    ) -> Result<Option<CMD::Resp>>
-    where
-        CMD::Resp: Send + 'static;
+    ) -> Result<Option<CMD::Resp>>;
 
     fn register_raw_handler<H: RawHandler<C> + Send + 'static>(
         &self,
@@ -46,7 +36,7 @@ pub trait Connection<C: Codec>: Sized {
 }
 
 pub trait ActionDispatcher<C: Codec> {
-    fn send<PA: ProtoAction<C>>(
+    fn send_action<PA: ProtoAction<C>>(
         &self,
         cfg: Option<C::ActionConfig>,
         action: &mut PA,
@@ -58,18 +48,17 @@ pub trait ActionDispatcher<C: Codec> {
     >;
 }
 
-pub trait Subscription<C: Codec> {
-    fn unsub(self);
+pub trait Subscription<C: Codec>: Send + 'static {
+    fn unsub(&mut self) -> Result<()>;
 }
 
 pub trait Subscriber<C: Codec> {
     fn subscribe_period_push<PS: ProtoSubscribe<C>>(
         &self,
         cfg: Option<C::SubscribeConfig>,
-        sid: C::SubscribeID,
     ) -> Result<(Rx<PS::Push>, Box<dyn Subscription<C>>)>;
 
-    fn subscribe_event<P: ProtoPush<C>>(&self, rx: Rx<P>) -> Result<Box<dyn Subscription<C>>>;
+    fn subscribe_event<P: ProtoPush<C>>(&self, tx: Tx<P>) -> Result<Box<dyn Subscription<C>>>;
 }
 
 pub trait Client<C: Codec>: Connection<C> + ActionDispatcher<C> + Subscriber<C> {
@@ -77,10 +66,7 @@ pub trait Client<C: Codec>: Connection<C> + ActionDispatcher<C> + Subscriber<C> 
         &self,
         receiver: Option<C::Receiver>,
         cmd: CMD,
-    ) -> Result<CMD::Resp>
-    where
-        CMD::Resp: Send + 'static,
-    {
+    ) -> Result<CMD::Resp> {
         let resp = self
             .send_cmd(receiver, cmd, true)?
             .ok_or_else(|| Error::InvalidData("cmd response required but got none".into()))?;
@@ -92,10 +78,7 @@ pub trait Client<C: Codec>: Connection<C> + ActionDispatcher<C> + Subscriber<C> 
         &self,
         receiver: Option<C::Receiver>,
         cmd: CMD,
-    ) -> Result<()>
-    where
-        CMD::Resp: Send + 'static,
-    {
+    ) -> Result<()> {
         self.send_cmd(receiver, cmd, false)?;
 
         Ok(())

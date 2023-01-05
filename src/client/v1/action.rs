@@ -30,25 +30,25 @@ struct ActionCallbacks(Mutex<HashMap<(Ident, Seq), ActionCallback>>);
 
 pub struct ActionDispatcher {
     seq: ActionSequence,
-    client: Arc<V1Connection>,
+    conn: Arc<V1Connection>,
     callbacks: Arc<ActionCallbacks>,
 }
 
 impl Drop for ActionDispatcher {
     fn drop(&mut self) {
-        let _ = self.client.unregister_raw_handler(HANDLER_NAME);
+        let _ = self.conn.unregister_raw_handler(HANDLER_NAME);
     }
 }
 
 impl ActionDispatcher {
-    pub fn new(client: Arc<V1Connection>) -> Result<Self> {
+    pub fn new(conn: Arc<V1Connection>) -> Result<Self> {
         let callbacks: Arc<ActionCallbacks> = Default::default();
 
-        client.register_raw_handler(HANDLER_NAME, callbacks.clone())?;
+        conn.register_raw_handler(HANDLER_NAME, callbacks.clone())?;
 
         Ok(Self {
             seq: Default::default(),
-            client,
+            conn,
             callbacks,
         })
     }
@@ -99,7 +99,7 @@ impl ActionDispatcher {
             .map_err(|_e| Error::Other("callbacks poisoned".into()))?;
 
         let resp = self
-            .client
+            .conn
             .send_cmd(A::TARGET, wrapped, true)?
             .ok_or_else(|| Error::Other("response required but not received".into()))?;
 

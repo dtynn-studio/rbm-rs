@@ -55,8 +55,8 @@ impl Drop for Connection {
     }
 }
 
-impl ConnectionTrait<v1::V1> for Connection {
-    fn new(
+impl Connection {
+    pub fn new(
         tx: Box<dyn TransportTx>,
         rxs: Vec<Box<dyn TransportRx>>,
         closers: Vec<Box<dyn TransportRxCloser>>,
@@ -79,7 +79,9 @@ impl ConnectionTrait<v1::V1> for Connection {
             join: Some(join),
         })
     }
+}
 
+impl ConnectionTrait<v1::V1> for Connection {
     fn send_cmd<CMD: ProtoCommand<v1::V1>>(
         &self,
         receiver: Option<<v1::V1 as Codec>::Receiver>,

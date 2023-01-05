@@ -5,11 +5,11 @@ use std::{
 };
 
 use rbm_rs::{
-    client::{self, transport, Connection},
+    client::{self, transport, ActionDispatcher, Connection, Subscriber},
     module::{chassis, common, dds::proto::cmd::NodeReset as SubNodeReset},
     network::{ConnectionType, NetworkType},
     product::robot,
-    proto::{v1::action::ActionUpdateHead, ProtoSubscribe},
+    proto::{v1::action::ActionUpdateHead, ProtoAction, ProtoSubscribe},
     util::host2byte,
 };
 
@@ -74,8 +74,8 @@ pub fn main() {
 
     let (rx, rx_closer) = transport::udp::trans_rx(socket.clone()).expect("construct udp trans rx");
     let tx = transport::udp::trans_tx_to(socket, device_addr);
-    let device_client = client::v1::Connection::new(tx, vec![rx], vec![rx_closer], host, target)
-        .map(Arc::new)
+
+    let device_client = client::v1::Client::new(tx, vec![rx], vec![rx_closer], host, target)
         .expect("construct v1 device client");
 
     {
@@ -111,15 +111,12 @@ pub fn main() {
         info!("resp: {:?}", resp);
     }
 
-    let subscriber =
-        client::v1::Subscriber::new(device_client.clone()).expect("construct subscriber");
-
     let mut pos = chassis::proto::subscribe::Position::new(
         chassis::proto::subscribe::PositionOriginMode::Current,
     );
 
-    let mut subscription = subscriber
-        .subscribe_period_push::<chassis::proto::subscribe::PositionPush>(None)
+    let (mut pos_rx, subscription) = device_client
+        .subscribe_period_push::<chassis::proto::subscribe::Position>(None)
         .expect("sub position updates");
 
     let (all_done_tx, all_done_rx) = bounded::<()>(0);
@@ -130,7 +127,7 @@ pub fn main() {
             let mut count = 0;
             loop {
                 select! {
-                    recv(subscription.rx.inner()) -> incoming_rx => {
+                    recv(pos_rx.inner()) -> incoming_rx => {
                         info!("recv incoming position update");
                         let incoming = match incoming_rx {
                             Ok(i) => i,
@@ -169,33 +166,31 @@ pub fn main() {
     });
 
     // actions
-    let actions_dispatcher =
-        client::v1::ActionDispatcher::new(device_client).expect("construct actions dispatcher");
 
     // move action
     {
-        // info!("start move action");
-        // let mut move_action =
-        //     chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
+        info!("start move action");
+        let mut move_action =
+            chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
 
-        // let mut recv_rx = actions_dispatcher
-        //     .send(None, &mut move_action)
-        //     .expect("send move action cmd");
+        let mut recv_rx = device_client
+            .send_action(None, &mut move_action)
+            .expect("send move action cmd");
 
-        // while let Some(update) = recv_rx.recv() {
-        //     match move_action.apply_update(update) {
-        //         Ok(done) => {
-        //             info!("move progress: {:?}", move_action.progress);
-        //             if done {
-        //                 break;
-        //             }
-        //         }
+        while let Some(update) = recv_rx.recv() {
+            match move_action.apply_update(update) {
+                Ok(done) => {
+                    info!("move progress: {:?}", move_action.progress);
+                    if done {
+                        break;
+                    }
+                }
 
-        //         Err(e) => {
-        //             warn!("apply move update: {:?}", e);
-        //         }
-        //     }
-        // }
+                Err(e) => {
+                    warn!("apply move update: {:?}", e);
+                }
+            }
+        }
     }
 
     std::thread::sleep(std::time::Duration::from_secs(5));

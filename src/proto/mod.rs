@@ -60,13 +60,13 @@ pub trait ProtoMessage<C: Codec>: Serialize<C> {
     const IDENT: C::Ident;
 }
 
-pub trait ProtoPush<C: Codec>: Deserialize<C> {
+pub trait ProtoPush<C: Codec>: Deserialize<C> + Send + 'static {
     const IDENT: C::Ident;
 }
 
 /// ProtoCommand: a simple request-response
 pub trait ProtoCommand<C: Codec>: ProtoMessage<C> {
-    type Resp: Deserialize<C>;
+    type Resp: Deserialize<C> + Send + 'static;
 }
 
 pub trait ToProtoMessage<C: Codec> {

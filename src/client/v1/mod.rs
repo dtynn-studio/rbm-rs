@@ -10,7 +10,7 @@ use crate::{
         v1::{action::ActionUpdateHead, Receiver, Sender, V1},
         Codec, ProtoAction, ProtoCommand, ProtoPush, ProtoSubscribe,
     },
-    util::chan::Rx,
+    util::chan::{Rx, Tx},
     Result,
 };
 
@@ -18,9 +18,9 @@ mod action;
 mod conn;
 mod subscribe;
 
-pub use action::*;
+use action::*;
 pub use conn::*;
-pub use subscribe::*;
+use subscribe::*;
 
 pub struct Client {
     conn: Arc<Connection>,
@@ -28,17 +28,26 @@ pub struct Client {
     subscriber: Subscriber,
 }
 
-impl ConnectionTrait<V1> for Client {
-    fn new(
+impl Client {
+    pub fn new(
         tx: Box<dyn TransportTx>,
         rxs: Vec<Box<dyn TransportRx>>,
         closers: Vec<Box<dyn TransportRxCloser>>,
         host: Sender,
         target: Receiver,
     ) -> Result<Self> {
-        unimplemented!()
+        let conn = Connection::new(tx, rxs, closers, host, target).map(Arc::new)?;
+        let action_dispatcher = ActionDispatcher::new(conn.clone())?;
+        let subscriber = Subscriber::new(conn.clone())?;
+        Ok(Self {
+            conn,
+            action_dispatcher,
+            subscriber,
+        })
     }
+}
 
+impl ConnectionTrait<V1> for Client {
     fn send_cmd<CMD: ProtoCommand<V1>>(
         &self,
         receiver: Option<Receiver>,
@@ -69,7 +78,7 @@ impl ConnectionTrait<V1> for Client {
 }
 
 impl ActionDispatcherTrait<V1> for Client {
-    fn send<PA: ProtoAction<V1>>(
+    fn send_action<PA: ProtoAction<V1>>(
         &self,
         cfg: Option<<V1 as Codec>::ActionConfig>,
         action: &mut PA,
@@ -82,16 +91,15 @@ impl SubscriberTrait<V1> for Client {
     fn subscribe_period_push<PS: ProtoSubscribe<V1>>(
         &self,
         cfg: Option<<V1 as Codec>::SubscribeConfig>,
-        sid: <V1 as Codec>::SubscribeID,
     ) -> Result<(Rx<PS::Push>, Box<dyn SubscriptionTrait<V1>>)> {
-        unimplemented!()
+        self.subscriber.subscribe_period_push::<PS>(cfg)
     }
 
     fn subscribe_event<P: ProtoPush<V1>>(
         &self,
-        rx: Rx<P>,
+        tx: Tx<P>,
     ) -> Result<Box<dyn SubscriptionTrait<V1>>> {
-        unimplemented!()
+        self.subscriber.subscribe_event::<P>(tx)
     }
 }
 

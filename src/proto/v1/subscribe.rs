@@ -48,10 +48,6 @@ impl Default for SubFreq {
     }
 }
 
-pub trait PushPeriodSubject: Deserialize<V1> {
-    const UID: u64;
-}
-
 impl_v1_cmd!(SubMsg, SubMsgResp, CMD_SET_SUBSCRIBE, 0x03);
 
 #[derive(Debug)]

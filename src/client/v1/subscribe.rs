@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use tracing::{trace, warn};
+use tracing::{error, trace};
 
-use crate::proto::Deserialize;
+use crate::proto::{Deserialize, ProtoSubscribe};
 use crate::{
-    client::{v1::Connection as V1Connection, Connection, RawHandler},
+    client::{
+        v1::Connection as V1Connection, Connection, RawHandler, Subscription as SubscriptionTrait,
+    },
     proto::{
         v1::{
             subscribe::{
-                PushPeriodMsg, PushPeriodSubject, SubConfig, SubMsg, SubscribeSequence, UnsubMsg,
+                PushPeriodMsg, SubConfig, SubMsg, SubscribeSequence, UnsubMsg,
                 PUSH_PERIOD_MSG_IDENT,
             },
             Ident, V1,
@@ -26,114 +28,105 @@ use crate::{
 const HANDLER_NAME: &str = "v1::Subscriber";
 const CMD_RECEIVER: u8 = host2byte(9, 0);
 
-pub struct PushSubscription<S: PushPeriodSubject> {
-    pub rx: Rx<S>,
-    msg_id: u8,
-    handlers: Arc<SubscribeHandlers>,
-    client: Arc<V1Connection>,
+enum Subscription {
+    PeriodPush {
+        msg_id: u8,
+        handlers: Arc<SubscribeHandlers>,
+        conn: Arc<V1Connection>,
+    },
+
+    Event {
+        ident: Ident,
+        handlers: Arc<SubscribeHandlers>,
+    },
 }
 
-pub struct EventSubscription {
-    ident: Ident,
-    handlers: Arc<SubscribeHandlers>,
-}
-
-impl EventSubscription {
+impl SubscriptionTrait<V1> for Subscription {
     fn unsub(&mut self) -> Result<()> {
-        self.handlers
-            .handlers
-            .lock()
-            .map_err(|_e| Error::Other("handlers poisoned".into()))?
-            .1
-            .remove(&self.ident);
+        match self {
+            Subscription::PeriodPush {
+                msg_id,
+                handlers,
+                conn,
+            } => {
+                handlers
+                    .handlers
+                    .lock()
+                    .map_err(|_e| Error::Other("handlers poisoned".into()))?
+                    .0
+                    .remove(msg_id);
+
+                let unsub_msg = UnsubMsg {
+                    node_id: conn.host(),
+                    msg_id: *msg_id,
+                    ..Default::default()
+                };
+
+                let _ = conn.send_cmd(Some(CMD_RECEIVER), unsub_msg, false)?;
+            }
+
+            Subscription::Event { ident, handlers } => {
+                handlers
+                    .handlers
+                    .lock()
+                    .map_err(|_e| Error::Other("handlers poisoned".into()))?
+                    .1
+                    .remove(ident);
+            }
+        }
 
         Ok(())
     }
 }
 
-impl Drop for EventSubscription {
+impl Drop for Subscription {
     fn drop(&mut self) {
         if let Err(e) = self.unsub() {
-            warn!(ident = ?self.ident, "event unsub failed: {:?}", e);
+            error!("unsub failed: {:?}", e);
         }
-    }
-}
-
-impl<S: PushPeriodSubject> Drop for PushSubscription<S> {
-    fn drop(&mut self) {
-        if let Err(e) = self.unsub() {
-            warn!(
-                uid = S::UID,
-                msg_id = self.msg_id,
-                "push unsub failed: {:?}",
-                e
-            );
-        }
-    }
-}
-
-impl<S: PushPeriodSubject> PushSubscription<S> {
-    fn unsub(&mut self) -> Result<()> {
-        self.handlers
-            .handlers
-            .lock()
-            .map_err(|_e| Error::Other("handlers poisoned".into()))?
-            .0
-            .remove(&self.msg_id);
-
-        let unsub_msg = UnsubMsg {
-            node_id: self.client.host(),
-            msg_id: self.msg_id,
-            ..Default::default()
-        };
-
-        let _ = self.client.send_cmd(Some(CMD_RECEIVER), unsub_msg, false)?;
-
-        Ok(())
     }
 }
 
 pub struct Subscriber {
     seq: SubscribeSequence,
     handlers: Arc<SubscribeHandlers>,
-    client: Arc<V1Connection>,
+    conn: Arc<V1Connection>,
 }
 
 impl Drop for Subscriber {
     fn drop(&mut self) {
-        let _ = self.client.unregister_raw_handler(HANDLER_NAME);
+        let _ = self.conn.unregister_raw_handler(HANDLER_NAME);
     }
 }
 
 impl Subscriber {
-    pub fn new(client: Arc<V1Connection>) -> Result<Self> {
+    pub fn new(conn: Arc<V1Connection>) -> Result<Self> {
         let handlers: Arc<SubscribeHandlers> = Default::default();
 
-        client.register_raw_handler(HANDLER_NAME, handlers.clone())?;
+        conn.register_raw_handler(HANDLER_NAME, handlers.clone())?;
 
         Ok(Subscriber {
             seq: Default::default(),
             handlers,
-            client,
+            conn,
         })
     }
 
-    pub fn subscribe_period_push<S: PushPeriodSubject>(
+    pub fn subscribe_period_push<S: ProtoSubscribe<V1>>(
         &self,
         cfg: Option<SubConfig>,
-    ) -> Result<PushSubscription<S>>
-    where
-        S: PushPeriodSubject + Send + 'static,
-    {
+    ) -> Result<(Rx<S::Push>, Box<dyn SubscriptionTrait<V1>>)> {
+        let sid = S::SID;
         let msg_id = self.seq.next();
-        trace!(?msg_id, "sub msg id");
-        let sub_msg = SubMsg::single(self.client.host(), msg_id, cfg.unwrap_or_default(), S::UID);
+        trace!(%msg_id, %sid, "sub msg");
+
+        let sub_msg = SubMsg::single(self.conn.host(), msg_id, cfg.unwrap_or_default(), sid);
 
         let (mut tx, rx) = unbounded();
         let hdl: SubscribeHandler = Box::new(move |input| {
             match input {
                 SubscribeHandlerInput::Data(data) => {
-                    let push = <S as Deserialize<V1>>::de(data)?;
+                    let push = <S::Push as Deserialize<V1>>::de(data)?;
                     tx.send(push)
                         .map_err(|_e| Error::Other("push chan broken".into()))?;
                 }
@@ -155,7 +148,7 @@ impl Subscriber {
             .map_err(|_e| Error::Other("handlers poisoned".into()))?;
 
         let resp = self
-            .client
+            .conn
             .send_cmd(Some(CMD_RECEIVER), sub_msg, true)?
             .ok_or_else(|| Error::Other("response required for sub msg".into()))?;
 
@@ -165,15 +158,20 @@ impl Subscriber {
             ));
         }
 
-        Ok(PushSubscription {
+        Ok((
             rx,
-            msg_id,
-            client: self.client.clone(),
-            handlers: self.handlers.clone(),
-        })
+            Box::new(Subscription::PeriodPush {
+                msg_id,
+                conn: self.conn.clone(),
+                handlers: self.handlers.clone(),
+            }),
+        ))
     }
 
-    pub fn subscribe_event<P: ProtoPush<V1>>(&self, mut tx: Tx<P>) -> Result<EventSubscription>
+    pub fn subscribe_event<P: ProtoPush<V1>>(
+        &self,
+        mut tx: Tx<P>,
+    ) -> Result<Box<dyn SubscriptionTrait<V1>>>
     where
         P: ProtoPush<V1> + Send + 'static,
     {
@@ -201,10 +199,10 @@ impl Subscriber {
             .map(|mut cbs| cbs.1.insert(P::IDENT, hdl))
             .map_err(|_e| Error::Other("handlers poisoned".into()))?;
 
-        Ok(EventSubscription {
+        Ok(Box::new(Subscription::Event {
             ident: P::IDENT,
             handlers: self.handlers.clone(),
-        })
+        }))
     }
 }
 
