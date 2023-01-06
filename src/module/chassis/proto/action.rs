@@ -67,7 +67,7 @@ impl ToProtoMessage<V1> for Move<ActionUpdateHead> {
 
 impl ProtoAction<V1> for Move<ActionUpdateHead> {
     const TARGET: Option<Receiver> = Some(host2byte(3, 6));
-    type Update = PositionMoveUpdate;
+    type Update = MoveUpdate;
 
     fn apply_state(&mut self, state: ActionState) -> Result<()> {
         self.status.state = state;
@@ -130,16 +130,16 @@ impl Serialize<V1> for PositionMove {
     }
 }
 
-impl_v1_action_update!(PositionMoveUpdate, CMD_SET_CTRL, 0x2a);
+impl_v1_action_update!(MoveUpdate, CMD_SET_CTRL, 0x2a);
 
 #[derive(Debug)]
-pub struct PositionMoveUpdate {
+pub struct MoveUpdate {
     pub pos_x: i16,
     pub pos_y: i16,
     pub pos_z: i16,
 }
 
-impl Deserialize<V1> for PositionMoveUpdate {
+impl Deserialize<V1> for MoveUpdate {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, 6);
         let mut reader = Cursor::new(buf);

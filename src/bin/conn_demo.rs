@@ -5,11 +5,11 @@ use std::{
 };
 
 use rbm_rs::{
-    client::{self, transport, ActionDispatcher, Connection, Subscriber},
-    module::{chassis, common, dds::proto::cmd::NodeReset as SubNodeReset},
+    client::{self, transport, Connection},
+    module::{chassis, common},
     network::{ConnectionType, NetworkType},
     product::robot,
-    proto::{v1::action::ActionUpdateHead, ProtoAction, ProtoSubscribe},
+    proto::{ProtoAction, ProtoSubscribe},
     util::host2byte,
 };
 
@@ -76,48 +76,22 @@ pub fn main() {
     let tx = transport::udp::trans_tx_to(socket, device_addr);
 
     let device_client = client::v1::Client::new(tx, vec![rx], vec![rx_closer], host, target)
+        .map(Arc::new)
         .expect("construct v1 device client");
 
-    {
-        info!("enable sdk");
-        let msg: common::proto::cmd::EnableSdkMode = true.into();
-        let resp = device_client.send_cmd(None, msg, true);
-        info!("resp: {:?}", resp);
-    }
+    let mut ep =
+        robot::RobotMasterEP::new(device_client).expect("construct RobotMasterEP instance");
 
-    // get sn
-    {
-        info!("get sn");
-        let msg = common::proto::cmd::GetSN::default();
-        let resp = device_client.send_cmd(Some(host2byte(8, 1)), msg, true);
-        info!("resp: {:?}", resp);
-    }
+    let version = ep.common.version().expect("get product version");
+    info!("product version: {:?}", version);
 
-    // reset sub nodes
-    {
-        info!("reset sub nodes");
-        let msg = SubNodeReset {
-            node_id: device_client.host(),
-        };
-        let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, true);
-        info!("resp: {:?}", resp);
-    }
+    let sn = ep.common.sn().expect("get serial number");
+    info!("product serial number: {}", sn);
 
-    // set robot mode
-    {
-        info!("set robot mode");
-        let msg = robot::proto::cmd::Mode::Free;
-        let resp = device_client.send_cmd(Some(host2byte(9, 0)), msg, true);
-        info!("resp: {:?}", resp);
-    }
-
-    let mut pos = chassis::proto::subscribe::Position::new(
-        chassis::proto::subscribe::PositionOriginMode::Current,
-    );
-
-    let (mut pos_rx, subscription) = device_client
-        .subscribe_period_push::<chassis::proto::subscribe::Position>(None)
-        .expect("sub position updates");
+    let (mut pos, mut pos_rx, subscription) = ep
+        .chassis
+        .subscribe_position(chassis::proto::subscribe::PositionOriginMode::Current, None)
+        .expect("subscribe chassis position");
 
     let (all_done_tx, all_done_rx) = bounded::<()>(0);
 
@@ -166,18 +140,15 @@ pub fn main() {
     });
 
     // actions
-
     // move action
     {
         info!("start move action");
-        let mut move_action =
-            chassis::proto::action::Move::<ActionUpdateHead>::new(0.5, 0.0, 0.0, 0.7, 30.0);
+        let (mut move_action, mut move_update_rx) = ep
+            .chassis
+            .action_start_move(0.5, 0.0, 0.0, Some(0.7), None)
+            .expect("start move action");
 
-        let mut recv_rx = device_client
-            .send_action(None, &mut move_action)
-            .expect("send move action cmd");
-
-        while let Some(update) = recv_rx.recv() {
+        while let Some(update) = move_update_rx.recv() {
             match move_action.apply_update(update) {
                 Ok(done) => {
                     info!("move progress: {:?}", move_action.progress);

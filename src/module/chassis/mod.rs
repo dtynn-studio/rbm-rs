@@ -13,7 +13,7 @@ use crate::{
 
 pub mod proto;
 pub use proto::{
-    action::Move,
+    action::{Move, MoveProgress, MoveUpdate},
     cmd::StickOverlayMode,
     subscribe::{Position, PositionOriginMode, PositionPush},
 };
@@ -28,6 +28,27 @@ impl<C: Client<V1>> Chassis<V1, C> {
         Ok(())
     }
 
+    pub fn action_start_move(
+        &mut self,
+        x: f32,
+        y: f32,
+        z: f32,
+        xy_speed: Option<f32>,
+        z_speed: Option<f32>,
+    ) -> Result<(Move<ActionUpdateHead>, Rx<(ActionUpdateHead, MoveUpdate)>)> {
+        let mut action = Move::<ActionUpdateHead>::new(
+            x,
+            y,
+            z,
+            xy_speed.unwrap_or(0.5),
+            z_speed.unwrap_or(30.0),
+        );
+
+        let rx = self.client.send_action(None, &mut action)?;
+
+        Ok((action, rx))
+    }
+
     // TODO: timeout?
     pub fn move_to(
         &mut self,
@@ -37,15 +58,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         xy_speed: Option<f32>,
         z_speed: Option<f32>,
     ) -> Result<()> {
-        let mut action = Move::<ActionUpdateHead>::new(
-            x,
-            y,
-            z,
-            xy_speed.unwrap_or(0.5),
-            z_speed.unwrap_or(30.0),
-        );
-
-        let mut rx = self.client.send_action(None, &mut action)?;
+        let (mut action, mut rx) = self.action_start_move(x, y, z, xy_speed, z_speed)?;
 
         while let Some(update) = rx.recv() {
             let done = action.apply_update(update)?;

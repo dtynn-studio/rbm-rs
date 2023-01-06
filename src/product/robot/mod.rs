@@ -32,13 +32,18 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let vision = Vision::new(client.clone())?;
         let dds = DDS::new(client.clone())?;
 
-        Ok(Self {
+        let mut robot = Self {
             client,
             common,
             chassis,
             vision,
             dds,
-        })
+        };
+
+        robot.common.enable_sdk_mode(true)?;
+        robot.reset()?;
+
+        Ok(robot)
     }
 
     pub fn reset(&mut self) -> Result<()> {
