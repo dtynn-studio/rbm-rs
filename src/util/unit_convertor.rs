@@ -134,6 +134,33 @@ pub const PWM_FREQ_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
     unit: "Hz",
 };
 
+pub const CHASSIS_YAW_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-180.0),
+    end: Some(180.0),
+    decimal: 2,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const CHASSIS_PITCH_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-180.0),
+    end: Some(180.0),
+    decimal: 2,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const CHASSIS_ROLL_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-180.0),
+    end: Some(180.0),
+    decimal: 2,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°",
+};
+
 pub const GIMBAL_PITCH_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     start: Some(-55.0),
     end: Some(55.0),

@@ -68,3 +68,43 @@ impl Deserialize<V1> for PositionPush {
         Ok(Self { x, y, z })
     }
 }
+
+impl ProtoSubscribe<V1> for Attitude {
+    const SID: u64 = Uid::Attitude as u64;
+
+    type Push = Attitude;
+
+    fn apply_push(&mut self, push: Self::Push) -> Result<()> {
+        let _ = std::mem::replace(self, push);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Attitude {
+    pub yaw: f32,
+    pub pitch: f32,
+    pub roll: f32,
+}
+
+impl Deserialize<V1> for Attitude {
+    fn de(buf: &[u8]) -> Result<Self> {
+        let mut reader = Cursor::new(buf);
+        let yaw = reader
+            .read_f32::<LE>()
+            .map_err(From::from)
+            .and_then(|val| unit_convertor::CHASSIS_YAW_CONVERTOR.proto2val::<f32>(val))?;
+
+        let pitch = reader
+            .read_f32::<LE>()
+            .map_err(From::from)
+            .and_then(|val| unit_convertor::CHASSIS_PITCH_CONVERTOR.proto2val::<f32>(val))?;
+
+        let roll = reader
+            .read_f32::<LE>()
+            .map_err(From::from)
+            .and_then(|val| unit_convertor::CHASSIS_ROLL_CONVERTOR.proto2val::<f32>(val))?;
+
+        Ok(Self { yaw, pitch, roll })
+    }
+}

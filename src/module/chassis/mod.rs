@@ -12,13 +12,11 @@ use crate::{
 };
 
 pub mod proto;
+pub use proto::cmd::StickOverlayMode;
 use proto::{
     action::{Move, MoveUpdate},
     cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
-};
-pub use proto::{
-    cmd::StickOverlayMode,
-    subscribe::{Position, PositionOriginMode, PositionPush},
+    subscribe::{Attitude, Position, PositionOriginMode, PositionPush},
 };
 
 const CHASSIS_TARGET_V1: Option<Receiver> = Some(host2byte(3, 6));
@@ -149,5 +147,12 @@ impl<C: Client<V1>> Chassis<V1, C> {
     ) -> Result<(Position, Rx<PositionPush>, Box<dyn Subscription<V1>>)> {
         let (pos_rx, sub) = self.client.subscribe_period_push::<Position>(freq)?;
         Ok((Position::new(origin), pos_rx, sub))
+    }
+
+    pub fn subscribe_attitude(
+        &mut self,
+        freq: Option<SubFreq>,
+    ) -> Result<(Rx<Attitude>, Box<dyn Subscription<V1>>)> {
+        self.client.subscribe_period_push::<Attitude>(freq)
     }
 }
