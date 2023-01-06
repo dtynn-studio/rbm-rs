@@ -7,13 +7,16 @@ use crate::{
         v1::{action::ActionUpdateHead, subscribe::SubFreq, Receiver, V1},
         ProtoAction,
     },
-    util::{chan::Rx, host2byte},
+    util::{chan::Rx, host2byte, unit_convertor},
     Result,
 };
 
 pub mod proto;
+use proto::{
+    action::{Move, MoveUpdate},
+    cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
+};
 pub use proto::{
-    action::{Move, MoveProgress, MoveUpdate},
     cmd::StickOverlayMode,
     subscribe::{Position, PositionOriginMode, PositionPush},
 };
@@ -25,6 +28,74 @@ impl_module!(Chassis);
 impl<C: Client<V1>> Chassis<V1, C> {
     pub fn set_stick_overlay(&mut self, mode: StickOverlayMode) -> Result<()> {
         self.client.send_cmd_sync(CHASSIS_TARGET_V1, mode)?;
+        Ok(())
+    }
+
+    pub fn set_wheel_speed(&mut self, w1: i16, w2: i16, w3: i16, w4: i16) -> Result<()> {
+        let w1_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(w1)?;
+        let w2_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(-w2)?;
+        let w3_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(-w3)?;
+        let w4_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(w4)?;
+
+        self.client.send_cmd_sync(
+            CHASSIS_TARGET_V1,
+            SetWheelSpeed {
+                w1_spd,
+                w2_spd,
+                w3_spd,
+                w4_spd,
+            },
+        )?;
+
+        Ok(())
+    }
+
+    pub fn set_speed(&mut self, x: f32, y: f32, z: f32) -> Result<()> {
+        let x_spd = unit_convertor::CHASSIS_SPD_X_CONVERTOR.val2proto(x)?;
+        let y_spd = unit_convertor::CHASSIS_SPD_Y_CONVERTOR.val2proto(y)?;
+        let z_spd = unit_convertor::CHASSIS_SPD_Z_CONVERTOR.val2proto(z)?;
+
+        self.client.send_cmd_sync(
+            CHASSIS_TARGET_V1,
+            SetSpeed {
+                x_spd,
+                y_spd,
+                z_spd,
+            },
+        )?;
+
+        Ok(())
+    }
+
+    pub fn set_pwm_percent(&mut self, values: [Option<u16>; 6]) -> Result<()> {
+        let mut mask = 0;
+        let mut pwms = [0u16; 6];
+        for i in 0..values.len() {
+            if let Some(v) = values[i] {
+                mask |= 1 << i;
+                pwms[i] = unit_convertor::PWM_VALUE_CONVERTOR.val2proto(v)?;
+            }
+        }
+
+        self.client
+            .send_cmd_sync(CHASSIS_TARGET_V1, SetPwmPercent { mask, pwms })?;
+
+        Ok(())
+    }
+
+    pub fn set_pwm_freq(&mut self, values: [Option<u16>; 6]) -> Result<()> {
+        let mut mask = 0;
+        let mut pwms = [0u16; 6];
+        for i in 0..values.len() {
+            if let Some(v) = values[i] {
+                mask |= 1 << i;
+                pwms[i] = unit_convertor::PWM_FREQ_CONVERTOR.val2proto(v)?;
+            }
+        }
+
+        self.client
+            .send_cmd_sync(CHASSIS_TARGET_V1, SetPwmFreq { mask, pwms })?;
+
         Ok(())
     }
 
