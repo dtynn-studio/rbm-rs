@@ -1,20 +1,10 @@
-use std::sync::Arc;
-
-use crate::{
-    client::Client,
-    module::common::constant::v1::DEFAULT_TARGET,
-    proto::{v1::V1, Codec},
-    Result,
-};
+use super::impl_module;
+use crate::{client::Client, module::common::constant::v1::DEFAULT_TARGET, proto::v1::V1, Result};
 
 pub mod proto;
 use proto::cmd::{NodeAdd, NodeReset};
 
-pub struct DDS<CODEC: Codec, C: Client<CODEC>> {
-    client: Arc<C>,
-
-    _codec: std::marker::PhantomData<CODEC>,
-}
+impl_module!(DDS);
 
 impl<C: Client<V1>> DDS<V1, C> {
     pub fn reset(&mut self) -> Result<()> {

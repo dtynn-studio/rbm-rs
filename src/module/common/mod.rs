@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
+use super::impl_module;
 use crate::{
     client::Client,
-    proto::{
-        v1::{Receiver, V1},
-        Codec,
-    },
+    proto::v1::{Receiver, V1},
     util::host2byte,
     Result,
 };
@@ -16,11 +12,7 @@ use constant::v1::DEFAULT_TARGET;
 pub mod proto;
 use proto::cmd::{EnableSdkMode, GetProductVersion, GetSN};
 
-pub struct Common<CODEC: Codec, C: Client<CODEC>> {
-    client: Arc<C>,
-
-    _codec: std::marker::PhantomData<CODEC>,
-}
+impl_module!(Common);
 
 const COMMON_TARGET_V1: Option<Receiver> = Some(host2byte(8, 1));
 

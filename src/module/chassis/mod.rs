@@ -1,12 +1,11 @@
-use std::sync::Arc;
-
 use tracing::trace;
 
+use super::impl_module;
 use crate::{
     client::{Client, Subscription},
     proto::{
         v1::{action::ActionUpdateHead, subscribe::SubFreq, Receiver, V1},
-        Codec, ProtoAction,
+        ProtoAction,
     },
     util::{chan::Rx, host2byte},
     Result,
@@ -19,13 +18,9 @@ pub use proto::{
     subscribe::{Position, PositionOriginMode, PositionPush},
 };
 
-pub struct Chassis<CODEC: Codec, C: Client<CODEC>> {
-    client: Arc<C>,
-
-    _codec: std::marker::PhantomData<CODEC>,
-}
-
 const CHASSIS_TARGET_V1: Option<Receiver> = Some(host2byte(3, 6));
+
+impl_module!(Chassis);
 
 impl<C: Client<V1>> Chassis<V1, C> {
     pub fn set_stick_overlay(&mut self, mode: StickOverlayMode) -> Result<()> {
