@@ -17,7 +17,8 @@ use proto::{
     action::{Move, MoveUpdate},
     cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
     subscribe::{
-        Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, PositionPush, Sbus, Velocity,
+        Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, PositionPush, SaStatus,
+        Sbus, Velocity,
     },
 };
 
@@ -162,4 +163,6 @@ impl<C: Client<V1>> Chassis<V1, C> {
     impl_v1_subscribe_meth_simple!(Esc);
 
     impl_v1_subscribe_meth_simple!(Imu);
+
+    impl_v1_subscribe_meth_simple!(SaStatus);
 }

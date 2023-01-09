@@ -278,3 +278,50 @@ impl Deserialize<V1> for Imu {
 }
 
 impl_v1_sub_self!(Imu);
+
+// :static_flag: 状态标准位
+// :up_hill: 处于上坡状态
+// :down_hill: 处于下坡状态
+// :on_slope: 处于倾斜状态
+// :is_pickup: 处于抱起状态
+// :slip_flag: 车身打滑
+// :impact_x: x轴发生撞击
+// :impact_y: y轴发生撞击
+// :impact_z: z轴发生撞击
+// :roll_over: 车身翻转
+// :hill_static: 处于斜坡状态
+#[derive(Debug, Default)]
+pub struct SaStatus {
+    pub static_flag: bool,
+    pub up_hill: bool,
+    pub down_hill: bool,
+    pub on_slope: bool,
+    pub is_pick_up: bool,
+    pub slip_flag: bool,
+    pub impact_x: bool,
+    pub impact_y: bool,
+    pub impact_z: bool,
+    pub roll_over: bool,
+    pub hill_static: bool,
+}
+
+impl Deserialize<V1> for SaStatus {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_buf_size!(buf, 2);
+        Ok(SaStatus {
+            static_flag: buf[0] & 0x01 == 1,
+            up_hill: (buf[0] >> 1) & 0x01 == 1,
+            down_hill: (buf[0] >> 2) & 0x01 == 1,
+            on_slope: (buf[0] >> 3) & 0x01 == 1,
+            is_pick_up: (buf[0] >> 4) & 0x01 == 1,
+            slip_flag: (buf[0] >> 5) & 0x01 == 1,
+            impact_x: (buf[0] >> 6) & 0x01 == 1,
+            impact_y: (buf[0] >> 7) & 0x01 == 1,
+            impact_z: buf[1] & 0x01 == 1,
+            roll_over: (buf[1] >> 1) & 0x01 == 1,
+            hill_static: (buf[1] >> 2) & 0x01 == 1,
+        })
+    }
+}
+
+impl_v1_sub_self!(SaStatus);
