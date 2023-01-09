@@ -1,8 +1,6 @@
 use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddrV4};
 
-use byteorder::WriteBytesExt;
-
 use crate::{
     ensure_buf_size, ensure_ok,
     network::{ConnectionType, NetworkType},
@@ -13,6 +11,7 @@ use crate::{
         },
         Deserialize, Serialize,
     },
+    util::ordered::WriteOrderedExt,
     Result,
 };
 
@@ -105,7 +104,7 @@ impl Serialize<V1> for EnableSdkMode {
     const SIZE_HINT: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.0 as u8).map_err(From::from)
+        w.write_le(self.0 as u8).map_err(From::from)
     }
 }
 

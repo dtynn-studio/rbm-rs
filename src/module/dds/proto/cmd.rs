@@ -1,13 +1,12 @@
 use std::io::Write;
 
-use byteorder::{WriteBytesExt, LE};
-
 use crate::{
     ensure_buf_size,
     proto::{
         v1::{cset::CMD_SET_SUBSCRIBE, impl_v1_cmd, RetOK, V1},
         Deserialize, Serialize,
     },
+    util::ordered::WriteOrderedExt,
     Error, Result, RetCode,
 };
 
@@ -56,8 +55,8 @@ impl Serialize<V1> for NodeAdd {
     const SIZE_HINT: usize = 5;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.node_id)?;
-        w.write_u32::<LE>(self.sub_vision)?;
+        w.write_le(self.node_id)?;
+        w.write_le(self.sub_vision)?;
         Ok(())
     }
 }
@@ -72,6 +71,6 @@ pub struct NodeReset {
 impl Serialize<V1> for NodeReset {
     const SIZE_HINT: usize = 1;
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.node_id).map_err(From::from)
+        w.write_le(self.node_id).map_err(From::from)
     }
 }

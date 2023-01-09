@@ -1,12 +1,11 @@
 use std::io::Write;
 
-use byteorder::{WriteBytesExt, LE};
-
 use crate::{
     proto::{
         v1::{cset::CMD_SET_CTRL, impl_v1_cmd, RetOK, V1},
         Serialize,
     },
+    util::ordered::WriteOrderedExt,
     Result,
 };
 
@@ -58,10 +57,10 @@ impl Serialize<V1> for SetWheelSpeed {
     const SIZE_HINT: usize = 8;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_i16::<LE>(self.w1_spd)?;
-        w.write_i16::<LE>(self.w2_spd)?;
-        w.write_i16::<LE>(self.w3_spd)?;
-        w.write_i16::<LE>(self.w4_spd)?;
+        w.write_le(self.w1_spd)?;
+        w.write_le(self.w2_spd)?;
+        w.write_le(self.w3_spd)?;
+        w.write_le(self.w4_spd)?;
         Ok(())
     }
 }
@@ -80,9 +79,9 @@ impl Serialize<V1> for SetSpeed {
     const SIZE_HINT: usize = 12;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_f32::<LE>(self.x_spd)?;
-        w.write_f32::<LE>(self.y_spd)?;
-        w.write_f32::<LE>(self.z_spd)?;
+        w.write_le(self.x_spd)?;
+        w.write_le(self.y_spd)?;
+        w.write_le(self.z_spd)?;
         Ok(())
     }
 }
@@ -100,9 +99,9 @@ impl Serialize<V1> for SetPwmPercent {
     const SIZE_HINT: usize = 13;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.mask)?;
+        w.write_le(self.mask)?;
         for v in self.pwms {
-            w.write_u16::<LE>(v)?;
+            w.write_le(v)?;
         }
         Ok(())
     }
@@ -121,9 +120,9 @@ impl Serialize<V1> for SetPwmFreq {
     const SIZE_HINT: usize = 13;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.mask)?;
+        w.write_le(self.mask)?;
         for v in self.pwms {
-            w.write_u16::<LE>(v)?;
+            w.write_le(v)?;
         }
         Ok(())
     }

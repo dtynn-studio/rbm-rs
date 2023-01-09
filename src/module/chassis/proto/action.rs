@@ -1,7 +1,5 @@
 use std::io::{Cursor, Write};
 
-use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-
 use crate::{
     ensure_buf_size,
     proto::{
@@ -11,7 +9,11 @@ use crate::{
         },
         ActionState, Deserialize, ProtoAction, Serialize, ToProtoMessage,
     },
-    util::{host2byte, unit_convertor},
+    util::{
+        host2byte,
+        ordered::{ReadOrderedExt, WriteOrderedExt},
+        unit_convertor,
+    },
     Result,
 };
 
@@ -115,16 +117,16 @@ impl Serialize<V1> for PositionMove {
     const SIZE_HINT: usize = 11;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.ctrl_mode)?;
-        w.write_u8(self.axis_mode)?;
+        w.write_le(self.ctrl_mode)?;
+        w.write_le(self.axis_mode)?;
 
-        w.write_i16::<LE>(self.pos_x)?;
-        w.write_i16::<LE>(self.pos_y)?;
-        w.write_i16::<LE>(self.pos_z)?;
+        w.write_le(self.pos_x)?;
+        w.write_le(self.pos_y)?;
+        w.write_le(self.pos_z)?;
 
-        w.write_u8(self.vel_xy_max)?;
+        w.write_le(self.vel_xy_max)?;
 
-        w.write_i16::<LE>(self.agl_omg_max)?;
+        w.write_le(self.agl_omg_max)?;
 
         Ok(())
     }
@@ -143,9 +145,9 @@ impl Deserialize<V1> for MoveUpdate {
     fn de(buf: &[u8]) -> Result<Self> {
         ensure_buf_size!(buf, 6);
         let mut reader = Cursor::new(buf);
-        let pos_x = reader.read_i16::<LE>()?;
-        let pos_y = reader.read_i16::<LE>()?;
-        let pos_z = reader.read_i16::<LE>()?;
+        let pos_x = reader.read_le()?;
+        let pos_y = reader.read_le()?;
+        let pos_z = reader.read_le()?;
 
         Ok(Self {
             pos_x,

@@ -1,12 +1,11 @@
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use byteorder::WriteBytesExt;
-
 use super::{Ident, Seq, V1};
 use crate::{
     ensure_buf_size,
-    proto::{ActionState, Deserialize, ProtoCommand, ProtoMessage, ProtoPush, Serialize},
+    proto::{ActionState, Deserialize, ProtoCommand, ProtoMessage, Serialize},
+    util::ordered::WriteOrderedExt,
     Result, RetCode,
 };
 
@@ -100,8 +99,8 @@ impl Serialize<V1> for ActionHead {
     const SIZE_HINT: usize = 2;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.id)?;
-        w.write_u8(self.cfg.ctrl as u8 | (self.cfg.freq as u8) << 2)?;
+        w.write_le(self.id)?;
+        w.write_le(self.cfg.ctrl as u8 | (self.cfg.freq as u8) << 2)?;
         Ok(())
     }
 }

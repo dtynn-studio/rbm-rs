@@ -1,12 +1,13 @@
 use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use byteorder::WriteBytesExt;
-
 use super::{Codec, Deserialize, ProtoMessage, Raw};
 use crate::{
     ensure_buf_size, ensure_ok,
-    util::algo::{crc16_calc, crc8_calc},
+    util::{
+        algo::{crc16_calc, crc8_calc},
+        ordered::WriteOrderedExt,
+    },
     Error, Result,
 };
 
@@ -56,16 +57,16 @@ impl Codec for V1 {
 
         let buf = Vec::with_capacity(size);
         let mut writer = Cursor::new(buf);
-        writer.write_u8(MSG_MAGIN_NUM)?; // #0
-        writer.write_u8((size & 0xff) as u8)?; // #1
-        writer.write_u8(((size >> 8) & 0x3 | 4) as u8)?; // #2
+        writer.write_le(MSG_MAGIN_NUM)?; // #0
+        writer.write_le((size & 0xff) as u8)?; // #1
+        writer.write_le(((size >> 8) & 0x3 | 4) as u8)?; // #2
                                                          // crc header
         let crc_header = crc8_calc(&writer.get_ref()[0..3], None);
-        writer.write_u8(crc_header)?; // #3
-        writer.write_u8(sender)?; // #4
-        writer.write_u8(receiver)?; // #5
-        writer.write_u8((id.1 & 0xff) as u8)?; // #6
-        writer.write_u8(((id.1 >> 8) & 0xff) as u8)?; // #7
+        writer.write_le(crc_header)?; // #3
+        writer.write_le(sender)?; // #4
+        writer.write_le(receiver)?; // #5
+        writer.write_le((id.1 & 0xff) as u8)?; // #6
+        writer.write_le(((id.1 >> 8) & 0xff) as u8)?; // #7
 
         // attri
         // is_ask should be recognized as resp, so attri here is always 0
@@ -77,18 +78,18 @@ impl Codec for V1 {
         //     Now = 1,
         //     Finish = 2,
         // }
-        writer.write_u8((if need_ack { 2 } else { 0 }) << 5)?; // #8
+        writer.write_le((if need_ack { 2 } else { 0 }) << 5)?; // #8
 
         // encode proto
-        writer.write_u8(id.0 .0)?; // #9
-        writer.write_u8(id.0 .1)?; // #10
+        writer.write_le(id.0 .0)?; // #9
+        writer.write_le(id.0 .1)?; // #10
 
         msg.ser(&mut writer)?; // msg
 
         // crc msg
         let crc_msg = crc16_calc(&writer.get_ref()[..], None).to_le_bytes();
-        writer.write_u8(crc_msg[0])?;
-        writer.write_u8(crc_msg[1])?;
+        writer.write_le(crc_msg[0])?;
+        writer.write_le(crc_msg[1])?;
         Ok(writer.into_inner())
     }
 

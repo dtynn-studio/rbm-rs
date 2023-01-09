@@ -1,13 +1,12 @@
 use std::io::Write;
 
-use byteorder::WriteBytesExt;
-
 use crate::{
     ensure_buf_size, ensure_ok,
     proto::{
         v1::{cset::CMD_SET_CTRL, impl_v1_cmd, impl_v1_empty_ser, RetOK, V1},
         Deserialize, Serialize,
     },
+    util::ordered::WriteOrderedExt,
     Error, Result,
 };
 
@@ -51,7 +50,7 @@ impl Serialize<V1> for Mode {
     const SIZE_HINT: usize = 1;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(*self as u8).map_err(From::from)
+        w.write_le(*self as u8).map_err(From::from)
     }
 }
 

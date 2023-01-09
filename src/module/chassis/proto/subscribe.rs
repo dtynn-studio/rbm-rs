@@ -1,7 +1,5 @@
 use std::io::Cursor;
 
-use byteorder::{ReadBytesExt, LE};
-
 use crate::{
     ensure_buf_size,
     module::common::constant::v1::Uid,
@@ -9,7 +7,7 @@ use crate::{
         v1::{impl_v1_sub_self, V1},
         Deserialize, ProtoSubscribe,
     },
-    util::unit_convertor,
+    util::{ordered::ReadOrderedExt, unit_convertor},
     Result,
 };
 
@@ -66,9 +64,9 @@ pub struct PositionPush {
 impl Deserialize<V1> for PositionPush {
     fn de(buf: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(buf);
-        let x = reader.read_f32::<LE>()?;
-        let y = reader.read_f32::<LE>()?;
-        let z = reader.read_f32::<LE>()?;
+        let x = reader.read_le()?;
+        let y = reader.read_le()?;
+        let z = reader.read_le()?;
         Ok(Self { x, y, z })
     }
 }
@@ -84,18 +82,15 @@ impl Deserialize<V1> for Attitude {
     fn de(buf: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(buf);
         let yaw = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_YAW_CONVERTOR.proto2val::<f32>(val))?;
 
         let pitch = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_PITCH_CONVERTOR.proto2val::<f32>(val))?;
 
         let roll = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_ROLL_CONVERTOR.proto2val::<f32>(val))?;
 
         Ok(Self { yaw, pitch, roll })
@@ -131,11 +126,11 @@ pub struct Sbus {
 impl Deserialize<V1> for Sbus {
     fn de(buf: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(buf);
-        let connect_status = reader.read_u8()?;
+        let connect_status = reader.read_le()?;
 
         let mut channels = [0i16; 16];
         for i in channels.as_mut_slice() {
-            *i = reader.read_i16::<LE>()?;
+            *i = reader.read_le()?;
         }
 
         Ok(Sbus {
@@ -163,28 +158,23 @@ impl Deserialize<V1> for Velocity {
     fn de(buf: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(buf);
         let g_x = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_X_CONVERTOR.proto2val::<f32>(val))?;
         let g_y = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_Y_CONVERTOR.proto2val::<f32>(val))?;
         let g_z = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_Z_CONVERTOR.proto2val::<f32>(val))?;
+
         let b_x = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_X_CONVERTOR.proto2val::<f32>(val))?;
         let b_y = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_Y_CONVERTOR.proto2val::<f32>(val))?;
         let b_z = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_SPD_Z_CONVERTOR.proto2val::<f32>(val))?;
 
         Ok(Velocity {
@@ -217,19 +207,19 @@ impl Deserialize<V1> for Esc {
         let mut info = Esc::default();
 
         for item in info.as_mut_slice() {
-            item.speed = reader.read_f32::<LE>()?;
+            item.speed = reader.read_le()?;
         }
 
         for item in info.as_mut_slice() {
-            item.angle = reader.read_f32::<LE>()?;
+            item.angle = reader.read_le()?;
         }
 
         for item in info.as_mut_slice() {
-            item.timestamp = reader.read_u32::<LE>()?;
+            item.timestamp = reader.read_le()?;
         }
 
         for item in info.as_mut_slice() {
-            item.state = reader.read_u8()?;
+            item.state = reader.read_le()?;
         }
 
         Ok(info)
@@ -257,29 +247,23 @@ impl Deserialize<V1> for Imu {
         let mut reader = Cursor::new(buf);
 
         let acc_x = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_ACC_CONVERTOR.proto2val::<f32>(val))?;
         let acc_y = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_ACC_CONVERTOR.proto2val::<f32>(val))?;
         let acc_z = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_ACC_CONVERTOR.proto2val::<f32>(val))?;
 
         let gyro_x = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_GYRO_CONVERTOR.proto2val::<f32>(val))?;
         let gyro_y = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_GYRO_CONVERTOR.proto2val::<f32>(val))?;
         let gyro_z = reader
-            .read_f32::<LE>()
-            .map_err(From::from)
+            .read_le()
             .and_then(|val| unit_convertor::CHASSIS_GYRO_CONVERTOR.proto2val::<f32>(val))?;
 
         Ok(Imu {

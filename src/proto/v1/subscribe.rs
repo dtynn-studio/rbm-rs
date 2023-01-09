@@ -1,12 +1,11 @@
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use byteorder::{WriteBytesExt, LE};
-
 use super::{cset::CMD_SET_SUBSCRIBE, impl_v1_cmd, Ident, RetOK, V1};
 use crate::{
     ensure_buf_size, ensure_ok,
     proto::{Deserialize, ProtoPush, Serialize},
+    util::ordered::WriteOrderedExt,
     Result, RetCode,
 };
 
@@ -112,16 +111,16 @@ impl Serialize<V1> for SubMsg {
     const SIZE_HINT: usize = 7;
 
     fn ser(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.node_id)?;
-        w.write_u8(self.msg_id)?;
-        w.write_u8((self.timestamp & 0x1) | (self.stop_when_disconnect & 0x2))?;
-        w.write_u8(self.sub_mode)?;
-        w.write_u8(self.sub_uid_list.len() as u8)?;
+        w.write_le(self.node_id)?;
+        w.write_le(self.msg_id)?;
+        w.write_le((self.timestamp & 0x1) | (self.stop_when_disconnect & 0x2))?;
+        w.write_le(self.sub_mode)?;
+        w.write_le(self.sub_uid_list.len() as u8)?;
         for uid in self.sub_uid_list.iter() {
-            w.write_u64::<LE>(*uid)?;
+            w.write_le(*uid)?;
         }
 
-        w.write_u16::<LE>(self.sub_freq as u16)?;
+        w.write_le(self.sub_freq as u16)?;
 
         Ok(())
     }
