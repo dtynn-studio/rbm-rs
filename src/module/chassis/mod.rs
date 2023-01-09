@@ -1,6 +1,6 @@
 use tracing::trace;
 
-use super::impl_module;
+use super::{impl_module, impl_v1_subscribe_meth_simple};
 use crate::{
     client::{Client, Subscription},
     proto::{
@@ -16,7 +16,9 @@ pub use proto::cmd::StickOverlayMode;
 use proto::{
     action::{Move, MoveUpdate},
     cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
-    subscribe::{Attitude, Position, PositionOriginMode, PositionPush},
+    subscribe::{
+        Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, PositionPush, Sbus, Velocity,
+    },
 };
 
 const CHASSIS_TARGET_V1: Option<Receiver> = Some(host2byte(3, 6));
@@ -149,10 +151,15 @@ impl<C: Client<V1>> Chassis<V1, C> {
         Ok((Position::new(origin), pos_rx, sub))
     }
 
-    pub fn subscribe_attitude(
-        &mut self,
-        freq: Option<SubFreq>,
-    ) -> Result<(Rx<Attitude>, Box<dyn Subscription<V1>>)> {
-        self.client.subscribe_period_push::<Attitude>(freq)
-    }
+    impl_v1_subscribe_meth_simple!(Attitude);
+
+    impl_v1_subscribe_meth_simple!(ChassisMode);
+
+    impl_v1_subscribe_meth_simple!(Sbus);
+
+    impl_v1_subscribe_meth_simple!(Velocity);
+
+    impl_v1_subscribe_meth_simple!(Esc);
+
+    impl_v1_subscribe_meth_simple!(Imu);
 }

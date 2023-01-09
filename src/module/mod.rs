@@ -4,4 +4,4 @@ pub mod dds;
 pub mod vision;
 
 pub(self) mod util;
-use util::impl_module;
+use util::{impl_module, impl_v1_subscribe_meth_simple};

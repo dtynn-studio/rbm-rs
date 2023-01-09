@@ -197,6 +197,24 @@ pub const GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<u16> = UnitConverto
     unit: "°/s",
 };
 
+pub const CHASSIS_ACC_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 5,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "",
+};
+
+pub const CHASSIS_GYRO_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 5,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "",
+};
+
 pub struct UnitConvertor<V> {
     start: Option<V>,
     end: Option<V>,

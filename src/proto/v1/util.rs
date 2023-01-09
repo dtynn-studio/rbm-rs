@@ -46,8 +46,31 @@ macro_rules! impl_v1_empty_de {
     };
 }
 
+macro_rules! impl_v1_sub_self {
+    ($name:ident) => {
+        impl_v1_sub_self!(
+            $name,
+            $crate::module::common::constant::v1::Uid::$name as u64
+        );
+    };
+
+    ($name:ty, $uid:expr) => {
+        impl $crate::proto::ProtoSubscribe<$crate::proto::v1::V1> for $name {
+            const SID: u64 = $uid;
+
+            type Push = $name;
+
+            fn apply_push(&mut self, push: Self::Push) -> Result<()> {
+                let _ = std::mem::replace(self, push);
+                Ok(())
+            }
+        }
+    };
+}
+
 pub(crate) use impl_v1_action_update;
 pub(crate) use impl_v1_cmd;
 pub(crate) use impl_v1_empty_de;
 pub(crate) use impl_v1_empty_ser;
 pub(crate) use impl_v1_msg;
+pub(crate) use impl_v1_sub_self;
