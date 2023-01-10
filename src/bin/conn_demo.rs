@@ -90,7 +90,7 @@ pub fn main() {
 
     let (mut pos, mut pos_rx, subscription) = ep
         .chassis
-        .subscribe_position(chassis::proto::subscribe::PositionOriginMode::Current, None)
+        .subscribe_position(chassis::proto::sub::PositionOriginMode::Current, None)
         .expect("subscribe chassis position");
 
     let (all_done_tx, all_done_rx) = bounded::<()>(0);

@@ -16,7 +16,7 @@ pub use proto::cmd::StickOverlayMode;
 use proto::{
     action::{Move, MoveUpdate},
     cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
-    subscribe::{
+    sub::{
         Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, PositionPush, SaStatus,
         Sbus, Velocity,
     },
