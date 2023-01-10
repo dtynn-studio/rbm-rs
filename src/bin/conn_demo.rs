@@ -145,7 +145,7 @@ pub fn main() {
         info!("start move action");
         let (mut move_action, mut move_update_rx) = ep
             .chassis
-            .action_start_move(0.5, 0.0, 0.0, Some(0.7), None)
+            .action_move(0.5, 0.0, 0.0, Some(0.7), None)
             .expect("start move action");
 
         while let Some(update) = move_update_rx.recv() {

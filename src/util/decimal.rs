@@ -102,5 +102,6 @@ macro_rules! impl_maybe_as {
     };
 }
 
+impl_maybe_as!(f32, u16);
 impl_maybe_as!(f32, i16);
 impl_maybe_as!(f32, u8);

@@ -1,24 +1,23 @@
 use tracing::trace;
 
-use super::{impl_module, impl_v1_subscribe_meth_simple};
+use super::{impl_module, impl_v1_subscribe_meth_simple, V1ActionReturn, V1SubscribeReturn};
 use crate::{
-    client::{Client, Subscription},
+    client::Client,
     proto::{
         v1::{action::ActionUpdateHead, subscribe::SubFreq, Receiver, V1},
         ProtoAction,
     },
-    util::{chan::Rx, host2byte, unit_convertor},
+    util::{host2byte, unit_convertor},
     Result,
 };
 
 pub mod proto;
 pub use proto::cmd::StickOverlayMode;
 use proto::{
-    action::{Move, MoveUpdate},
+    action::Move,
     cmd::{SetPwmFreq, SetPwmPercent, SetSpeed, SetWheelSpeed},
     sub::{
-        Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, PositionPush, SaStatus,
-        Sbus, Velocity,
+        Attitude, ChassisMode, Esc, Imu, Position, PositionOriginMode, SaStatus, Sbus, Velocity,
     },
 };
 
@@ -100,14 +99,14 @@ impl<C: Client<V1>> Chassis<V1, C> {
         Ok(())
     }
 
-    pub fn action_start_move(
+    pub fn action_move(
         &mut self,
         x: f32,
         y: f32,
         z: f32,
         xy_speed: Option<f32>,
         z_speed: Option<f32>,
-    ) -> Result<(Move<ActionUpdateHead>, Rx<(ActionUpdateHead, MoveUpdate)>)> {
+    ) -> Result<V1ActionReturn<Move<ActionUpdateHead>>> {
         let mut action = Move::<ActionUpdateHead>::new(
             x,
             y,
@@ -130,7 +129,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         xy_speed: Option<f32>,
         z_speed: Option<f32>,
     ) -> Result<()> {
-        let (mut action, mut rx) = self.action_start_move(x, y, z, xy_speed, z_speed)?;
+        let (mut action, mut rx) = self.action_move(x, y, z, xy_speed, z_speed)?;
 
         while let Some(update) = rx.recv() {
             let done = action.apply_update(update)?;
@@ -147,7 +146,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         &mut self,
         origin: PositionOriginMode,
         freq: Option<SubFreq>,
-    ) -> Result<(Position, Rx<PositionPush>, Box<dyn Subscription<V1>>)> {
+    ) -> Result<V1SubscribeReturn<Position>> {
         let (pos_rx, sub) = self.client.subscribe_period_push::<Position>(freq)?;
         Ok((Position::new(origin), pos_rx, sub))
     }

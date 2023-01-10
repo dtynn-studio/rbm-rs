@@ -161,42 +161,6 @@ pub const CHASSIS_ROLL_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     unit: "°",
 };
 
-pub const GIMBAL_PITCH_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
-    start: Some(-55.0),
-    end: Some(55.0),
-    decimal: 0,
-    scale: 10.0,
-    delta: 0.0,
-    unit: "°",
-};
-
-pub const GIMBAL_YAW_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
-    start: Some(-500.0),
-    end: Some(500.0),
-    decimal: 0,
-    scale: 10.0,
-    delta: 0.0,
-    unit: "°",
-};
-
-pub const GIMBAL_PITCH_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
-    start: Some(0),
-    end: Some(540),
-    decimal: 0,
-    scale: 1,
-    delta: 0,
-    unit: "°/s",
-};
-
-pub const GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<u16> = UnitConvertor {
-    start: Some(0),
-    end: Some(540),
-    decimal: 0,
-    scale: 1,
-    delta: 0,
-    unit: "°/s",
-};
-
 pub const CHASSIS_ACC_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     start: None,
     end: None,
@@ -215,6 +179,106 @@ pub const CHASSIS_GYRO_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     unit: "",
 };
 
+pub const GIMBAL_PITCH_SPEED_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-540.0),
+    end: Some(540.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_YAW_SPEED_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-540.0),
+    end: Some(540.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_PITCH_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-55.0),
+    end: Some(55.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_YAW_MOVE_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-500.0),
+    end: Some(500.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_PITCH_TARGET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-20.0),
+    end: Some(35.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_YAW_TARGET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(-250.0),
+    end: Some(250.0),
+    decimal: 0,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_RECENTER_SPEED_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(0.0),
+    end: Some(360.0),
+    decimal: 0,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_PITCH_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(0.0),
+    end: Some(540.0),
+    decimal: 0,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_YAW_MOVE_SPEED_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(0.0),
+    end: Some(540.0),
+    decimal: 0,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°/s",
+};
+
+pub const GIMBAL_ATTI_PITCH_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 2,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+pub const GIMBAL_ATTI_YAW_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: None,
+    end: None,
+    decimal: 2,
+    scale: 10.0,
+    delta: 0.0,
+    unit: "°",
+};
+
+// TODO: default value
 pub struct UnitConvertor<V> {
     start: Option<V>,
     end: Option<V>,

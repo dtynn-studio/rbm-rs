@@ -6,6 +6,7 @@ use crate::{
         chassis::Chassis,
         common::{constant::v1::DEFAULT_TARGET, Common},
         dds::DDS,
+        gimbal::Gimbal,
         vision::Vision,
     },
     proto::{v1::V1, Codec},
@@ -21,6 +22,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
 
     pub common: Common<CODEC, C>,
     pub chassis: Chassis<CODEC, C>,
+    pub gimbal: Gimbal<CODEC, C>,
     pub vision: Vision<CODEC, C>,
     pub dds: DDS<CODEC, C>,
 }
@@ -29,6 +31,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
     pub fn new(client: Arc<C>) -> Result<Self> {
         let common = Common::new(client.clone())?;
         let chassis = Chassis::new(client.clone())?;
+        let gimbal = Gimbal::new(client.clone())?;
         let vision = Vision::new(client.clone())?;
         let dds = DDS::new(client.clone())?;
 
@@ -36,6 +39,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             client,
             common,
             chassis,
+            gimbal,
             vision,
             dds,
         };

@@ -47,8 +47,8 @@ impl ProtoSubscribe<V1> for Position {
         }
 
         self.current.x = unit_convertor::CHASSIS_POS_X_SUB_CONVERTOR.proto2val(push.x)?;
-        self.current.y = unit_convertor::CHASSIS_POS_X_SUB_CONVERTOR.proto2val(push.y)?;
-        self.current.z = unit_convertor::CHASSIS_POS_X_SUB_CONVERTOR.proto2val(push.z)?;
+        self.current.y = unit_convertor::CHASSIS_POS_Y_SUB_CONVERTOR.proto2val(push.y)?;
+        self.current.z = unit_convertor::CHASSIS_POS_Z_SUB_CONVERTOR.proto2val(push.z)?;
 
         Ok(())
     }
