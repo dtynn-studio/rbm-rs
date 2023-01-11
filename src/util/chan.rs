@@ -29,10 +29,10 @@ pub fn unbounded<T>() -> (Tx<T>, Rx<T>) {
     wrap_chan(tx, rx)
 }
 
-pub fn bounded<T>(cap: usize) -> (Tx<T>, Rx<T>) {
-    let (tx, rx) = crossbeam_channel::bounded(cap);
-    wrap_chan(tx, rx)
-}
+// pub fn bounded<T>(cap: usize) -> (Tx<T>, Rx<T>) {
+//     let (tx, rx) = crossbeam_channel::bounded(cap);
+//     wrap_chan(tx, rx)
+// }
 
 #[derive(Clone)]
 pub struct Tx<T> {
@@ -56,28 +56,28 @@ impl<T> Tx<T> {
     }
 }
 
-impl<T> Drop for Rx<T> {
-    fn drop(&mut self) {
-        self.closed.store(true, Ordering::Relaxed);
-    }
-}
-
 pub struct Rx<T> {
     rx: Receiver<T>,
     tx: Arc<Sender<T>>,
     closed: Arc<AtomicBool>,
 }
 
+impl<T> Drop for Rx<T> {
+    fn drop(&mut self) {
+        self.closed.store(true, Ordering::Relaxed);
+    }
+}
+
 impl<T> Rx<T> {
-    pub fn recv(&mut self) -> Option<T> {
+    pub fn recv(&self) -> Option<T> {
         self.rx.recv().ok()
     }
 
-    pub fn inner(&mut self) -> &Receiver<T> {
+    pub fn inner(&self) -> &Receiver<T> {
         &self.rx
     }
 
-    pub fn is_closed(&mut self) -> bool {
+    pub fn is_closed(&self) -> bool {
         Arc::strong_count(&self.tx) == 1
     }
 }

@@ -129,7 +129,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         xy_speed: Option<f32>,
         z_speed: Option<f32>,
     ) -> Result<()> {
-        let (mut action, mut rx) = self.action_move(x, y, z, xy_speed, z_speed)?;
+        let (mut action, rx) = self.action_move(x, y, z, xy_speed, z_speed)?;
 
         while let Some(update) = rx.recv() {
             let done = action.apply_update(update)?;

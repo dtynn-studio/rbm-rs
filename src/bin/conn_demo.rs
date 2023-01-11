@@ -88,7 +88,7 @@ pub fn main() {
     let sn = ep.common.sn().expect("get serial number");
     info!("product serial number: {}", sn);
 
-    let (mut pos, mut pos_rx, subscription) = ep
+    let (mut pos, pos_rx, subscription) = ep
         .chassis
         .subscribe_position(chassis::proto::sub::PositionOriginMode::Current, None)
         .expect("subscribe chassis position");
@@ -143,7 +143,7 @@ pub fn main() {
     // move action
     {
         info!("start move action");
-        let (mut move_action, mut move_update_rx) = ep
+        let (mut move_action, move_update_rx) = ep
             .chassis
             .action_move(0.5, 0.0, 0.0, Some(0.7), None)
             .expect("start move action");

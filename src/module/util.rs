@@ -1,16 +1,35 @@
 macro_rules! impl_module {
-    ($name:ident) => {
+    ($name:ident $(,$fname:ident : $ftype:ty)* $(,~ $dfname:ident : $dftype:ty)*) => {
         pub struct $name<CODEC: $crate::proto::Codec, C: $crate::client::Client<CODEC>> {
             client: std::sync::Arc<C>,
 
             _codec: std::marker::PhantomData<CODEC>,
+
+            $(
+                $fname: $ftype,
+            )*
+
+            $(
+                $dfname: $dftype,
+            )*
         }
 
         impl<CODEC: $crate::proto::Codec, C: $crate::client::Client<CODEC>> $name<CODEC, C> {
-            pub fn new(client: std::sync::Arc<C>) -> $crate::Result<Self> {
+            pub fn new(
+                client: std::sync::Arc<C>,
+                $(
+                    $fname: $ftype,
+                )*
+            ) -> $crate::Result<Self> {
                 Ok(Self {
                     client,
                     _codec: Default::default(),
+                    $(
+                        $fname,
+                     )*
+                    $(
+                        $dfname: Default::default(),
+                     )*
                 })
             }
         }
