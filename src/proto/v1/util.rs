@@ -38,7 +38,7 @@ macro_rules! impl_v1_empty_ser {
 
 macro_rules! impl_v1_empty_de {
     ($name:ty) => {
-        impl $crate::proto::Deserialize for $name {
+        impl $crate::proto::Deserialize<$crate::proto::v1::V1> for $name {
             fn de(_buf: &[u8]) -> $crate::Result<Self> {
                 Ok(Self::default())
             }

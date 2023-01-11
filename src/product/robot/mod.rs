@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     client::Client,
     module::{
+        camera::EPCamera,
         chassis::Chassis,
         common::{constant::v1::DEFAULT_TARGET, Common},
         dds::DDS,
@@ -23,6 +24,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub common: Common<CODEC, C>,
     pub chassis: Chassis<CODEC, C>,
     pub gimbal: Gimbal<CODEC, C>,
+    pub camera: EPCamera<CODEC, C>,
     pub vision: Vision<CODEC, C>,
     pub dds: DDS<CODEC, C>,
 }
@@ -32,6 +34,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let common = Common::new(client.clone())?;
         let chassis = Chassis::new(client.clone())?;
         let gimbal = Gimbal::new(client.clone())?;
+        let camera = EPCamera::new(client.clone())?;
         let vision = Vision::new(client.clone())?;
         let dds = DDS::new(client.clone())?;
 
@@ -40,6 +43,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             common,
             chassis,
             gimbal,
+            camera,
             vision,
             dds,
         };

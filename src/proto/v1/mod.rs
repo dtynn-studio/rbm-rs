@@ -142,3 +142,6 @@ impl Deserialize<V1> for RetOK {
         Ok(RetOK)
     }
 }
+
+impl_v1_empty_de!(());
+impl_v1_empty_ser!(());
