@@ -18,7 +18,7 @@ pub struct DetectTypeMask(u16);
 
 impl DetectTypeMask {
     pub fn add(&mut self, typ: DetectType) {
-        self.0 &= typ.mask();
+        self.0 |= typ.mask();
     }
 
     pub fn sub(&mut self, typ: DetectType) {

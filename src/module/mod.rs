@@ -13,6 +13,7 @@ pub mod chassis;
 pub mod common;
 pub mod dds;
 pub mod gimbal;
+pub mod led;
 pub mod vision;
 
 pub(self) mod util;

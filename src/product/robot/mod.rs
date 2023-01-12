@@ -9,6 +9,7 @@ use crate::{
         common::{EPCommon, RobotMode},
         dds::DDS,
         gimbal::Gimbal,
+        led::EPLed,
         vision::Vision,
     },
     proto::{v1::V1, Codec},
@@ -24,17 +25,20 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub blaster: Blaster<CODEC, C>,
     pub vision: Vision<CODEC, C>,
     pub dds: DDS<CODEC, C>,
+    pub led: EPLed<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
     pub fn new(client: Arc<C>) -> Result<Self> {
-        let common = EPCommon::new(client.clone())?;
         let chassis = Chassis::new(client.clone())?;
         let gimbal = Gimbal::new(client.clone())?;
         let camera = EPCamera::new(client.clone())?;
         let blaster = Blaster::new(client.clone())?;
         let vision = Vision::new(client.clone())?;
-        let dds = DDS::new(client)?;
+        let dds = DDS::new(client.clone())?;
+        let led = EPLed::new(client.clone())?;
+
+        let common = EPCommon::new(client)?;
 
         let mut robot = Self {
             common,
@@ -44,6 +48,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             blaster,
             vision,
             dds,
+            led,
         };
 
         robot.common.enable_sdk_mode(true)?;
