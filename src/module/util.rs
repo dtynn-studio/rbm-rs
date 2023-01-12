@@ -48,7 +48,7 @@ macro_rules! impl_v1_subscribe_meth_simple {
             pub fn [<subscribe_ $meth>](
                 &mut self,
                 freq: Option<$crate::proto::v1::subscribe::SubFreq>,
-            ) -> Result<(
+            ) -> $crate::Result<(
                 $subty,
                 $crate::util::chan::Rx<$subty>,
                 Box<dyn $crate::client::Subscription<$crate::proto::v1::V1>>,

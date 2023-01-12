@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     client::Client,
     module::{
+        battery::EPBattery,
         blaster::Blaster,
         camera::EPCamera,
         chassis::Chassis,
@@ -26,6 +27,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub vision: Vision<CODEC, C>,
     pub dds: DDS<CODEC, C>,
     pub led: EPLed<CODEC, C>,
+    pub battery: EPBattery<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -37,6 +39,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let vision = Vision::new(client.clone())?;
         let dds = DDS::new(client.clone())?;
         let led = EPLed::new(client.clone())?;
+        let battery = EPBattery::new(client.clone())?;
 
         let common = EPCommon::new(client)?;
 
@@ -49,6 +52,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             vision,
             dds,
             led,
+            battery,
         };
 
         robot.common.enable_sdk_mode(true)?;
