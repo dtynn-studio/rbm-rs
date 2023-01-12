@@ -17,6 +17,10 @@ pub enum Error {
         msg: Option<Cow<'static, str>>,
     },
     InvalidData(Cow<'static, str>),
+    InvalidValue {
+        unit: &'static str,
+        inner: Box<Error>,
+    },
     Other(Cow<'static, str>),
 }
 

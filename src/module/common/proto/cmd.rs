@@ -12,7 +12,7 @@ use crate::{
         Deserialize, Serialize,
     },
     util::ordered::WriteOrderedExt,
-    Result,
+    Error, Result,
 };
 
 impl_v1_cmd!(SetSdkConnection, SetSdkConnectionResp, CMD_SET_CTRL, 0xd4);
@@ -247,3 +247,54 @@ impl Deserialize<V1> for GetSNResp {
         Ok(Self { sn })
     }
 }
+
+impl_v1_cmd!(RobotMode, RetOK, CMD_SET_CTRL, 0x46);
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum RobotMode {
+    Free = 0,
+    GimbalLead = 1,
+    ChassisLead = 2,
+}
+
+impl TryFrom<u8> for RobotMode {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => RobotMode::Free,
+            1 => RobotMode::GimbalLead,
+            2 => RobotMode::ChassisLead,
+            other => {
+                return Err(Error::InvalidData(
+                    format!("unknown robot mode {}", other).into(),
+                ))
+            }
+        })
+    }
+}
+
+impl Deserialize<V1> for RobotMode {
+    fn de(buf: &[u8]) -> Result<Self> {
+        ensure_ok!(buf);
+        ensure_buf_size!(buf, 2);
+
+        buf[1].try_into()
+    }
+}
+
+impl Serialize<V1> for RobotMode {
+    const SIZE_HINT: usize = 1;
+
+    fn ser(&self, w: &mut impl Write) -> Result<()> {
+        w.write_le(*self as u8).map_err(From::from)
+    }
+}
+
+impl_v1_cmd!(GetRobotMode, RobotMode, CMD_SET_CTRL, 0x47);
+
+#[derive(Debug)]
+pub struct GetRobotMode;
+
+impl_v1_empty_ser!(GetRobotMode);

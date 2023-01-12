@@ -6,7 +6,7 @@ use crate::{
         blaster::Blaster,
         camera::EPCamera,
         chassis::Chassis,
-        common::{constant::v1::DEFAULT_TARGET, Common},
+        common::{EPCommon, RobotMode},
         dds::DDS,
         gimbal::Gimbal,
         vision::Vision,
@@ -15,14 +15,9 @@ use crate::{
     Result,
 };
 
-pub mod proto;
-use proto::cmd;
-
 // TODO: heartbeat
 pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
-    client: Arc<C>,
-
-    pub common: Common<CODEC, C>,
+    pub common: EPCommon<CODEC, C>,
     pub chassis: Chassis<CODEC, C>,
     pub gimbal: Gimbal<CODEC, C>,
     pub camera: EPCamera<CODEC, C>,
@@ -33,16 +28,15 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
     pub fn new(client: Arc<C>) -> Result<Self> {
-        let common = Common::new(client.clone())?;
+        let common = EPCommon::new(client.clone())?;
         let chassis = Chassis::new(client.clone())?;
         let gimbal = Gimbal::new(client.clone())?;
         let camera = EPCamera::new(client.clone())?;
         let blaster = Blaster::new(client.clone())?;
         let vision = Vision::new(client.clone())?;
-        let dds = DDS::new(client.clone())?;
+        let dds = DDS::new(client)?;
 
         let mut robot = Self {
-            client,
             common,
             chassis,
             gimbal,
@@ -60,17 +54,8 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
 
     pub fn reset(&mut self) -> Result<()> {
         self.dds.reset()?;
-        self.set_robot_mode(cmd::Mode::Free)?;
+        self.common.set_robot_mode(RobotMode::Free)?;
         self.vision.reset()?;
         Ok(())
-    }
-
-    pub fn set_robot_mode(&mut self, mode: cmd::Mode) -> Result<()> {
-        self.client.send_cmd_sync(DEFAULT_TARGET, mode)?;
-        Ok(())
-    }
-
-    pub fn robot_mode(&mut self) -> Result<cmd::Mode> {
-        self.client.send_cmd_sync(DEFAULT_TARGET, cmd::GetMode)
     }
 }

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     util::decimal::{MaybeFrom, MaybeInto, MaybeRound},
-    Result,
+    Error, Result,
 };
 
 pub const CHASSIS_POS_X_SET_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
@@ -312,14 +312,27 @@ where
         v = self.check(v);
         v *= self.scale;
         v += self.delta;
-        v.round(self.decimal).and_then(MaybeFrom::maybe_from)
+        v.round(self.decimal)
+            .and_then(MaybeFrom::maybe_from)
+            .map_err(|ie| Error::InvalidValue {
+                unit: self.unit,
+                inner: Box::new(ie),
+            })
     }
 
     pub fn proto2val<PV: MaybeInto<V>>(&self, pv: PV) -> Result<V> {
-        let mut v = pv.maybe_into()?;
+        let mut v = pv.maybe_into().map_err(|ie| Error::InvalidValue {
+            unit: self.unit,
+            inner: Box::new(ie),
+        })?;
+
         v -= self.delta;
         v /= self.scale;
-        v.round(self.decimal)?;
+
+        v.round(self.decimal).map_err(|ie| Error::InvalidValue {
+            unit: self.unit,
+            inner: Box::new(ie),
+        })?;
         Ok(self.check(v))
     }
 }
