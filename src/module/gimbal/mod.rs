@@ -13,20 +13,18 @@ use proto::{
     sub::Position,
 };
 
-const GIMBAL_TARGET_V1: Option<Receiver> = Some(host2byte(4, 0));
+pub const V1_HOST: Option<Receiver> = Some(host2byte(4, 0));
 
 impl_module!(Gimbal);
 
 impl<C: Client<V1>> Gimbal<V1, C> {
     pub fn suspend(&mut self) -> Result<()> {
-        self.client
-            .send_cmd_sync(GIMBAL_TARGET_V1, CtrlCode::Suspend)?;
+        self.client.send_cmd_sync(V1_HOST, CtrlCode::Suspend)?;
         Ok(())
     }
 
     pub fn resume(&mut self) -> Result<()> {
-        self.client
-            .send_cmd_sync(GIMBAL_TARGET_V1, CtrlCode::Resume)?;
+        self.client.send_cmd_sync(V1_HOST, CtrlCode::Resume)?;
         Ok(())
     }
 
@@ -37,7 +35,7 @@ impl<C: Client<V1>> Gimbal<V1, C> {
             ..Default::default()
         };
 
-        self.client.send_cmd_sync(GIMBAL_TARGET_V1, cmd)?;
+        self.client.send_cmd_sync(V1_HOST, cmd)?;
         Ok(())
     }
 

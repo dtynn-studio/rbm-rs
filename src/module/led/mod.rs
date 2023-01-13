@@ -1,13 +1,17 @@
 use super::impl_module;
 use crate::{
-    client::Client, module::common::constant::v1::DEFAULT_TARGET, proto::v1::V1, Error, Result,
+    client::Client,
+    module::common::constant::v1::DEFAULT_TARGET,
+    proto::v1::{Receiver, V1},
+    util::host2byte,
+    Error, Result,
 };
 
 pub mod proto;
 use proto::cmd::SetSystemLed;
 pub use proto::cmd::{Comp, Effect};
 
-// const DEFAULT_TARGET_V1: Option<Receiver> = Some(host2byte(24, 0));
+pub const V1_HOST: Option<Receiver> = Some(host2byte(24, 0));
 
 impl_module!(EPLed);
 

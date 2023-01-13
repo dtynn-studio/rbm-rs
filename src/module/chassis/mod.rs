@@ -21,13 +21,13 @@ use proto::{
     },
 };
 
-const CHASSIS_TARGET_V1: Option<Receiver> = Some(host2byte(3, 6));
+pub const V1_HOST: Option<Receiver> = Some(host2byte(3, 6));
 
 impl_module!(Chassis);
 
 impl<C: Client<V1>> Chassis<V1, C> {
     pub fn set_stick_overlay(&mut self, mode: StickOverlayMode) -> Result<()> {
-        self.client.send_cmd_sync(CHASSIS_TARGET_V1, mode)?;
+        self.client.send_cmd_sync(V1_HOST, mode)?;
         Ok(())
     }
 
@@ -38,7 +38,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         let w4_spd = unit_convertor::WHEEL_SPD_CONVERTOR.val2proto(w4)?;
 
         self.client.send_cmd_sync(
-            CHASSIS_TARGET_V1,
+            V1_HOST,
             SetWheelSpeed {
                 w1_spd,
                 w2_spd,
@@ -56,7 +56,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         let z_spd = unit_convertor::CHASSIS_SPD_Z_CONVERTOR.val2proto(z)?;
 
         self.client.send_cmd_sync(
-            CHASSIS_TARGET_V1,
+            V1_HOST,
             SetSpeed {
                 x_spd,
                 y_spd,
@@ -78,7 +78,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         }
 
         self.client
-            .send_cmd_sync(CHASSIS_TARGET_V1, SetPwmPercent { mask, pwms })?;
+            .send_cmd_sync(V1_HOST, SetPwmPercent { mask, pwms })?;
 
         Ok(())
     }
@@ -94,7 +94,7 @@ impl<C: Client<V1>> Chassis<V1, C> {
         }
 
         self.client
-            .send_cmd_sync(CHASSIS_TARGET_V1, SetPwmFreq { mask, pwms })?;
+            .send_cmd_sync(V1_HOST, SetPwmFreq { mask, pwms })?;
 
         Ok(())
     }

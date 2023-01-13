@@ -23,21 +23,19 @@ use proto::{
 
 impl_module!(EPCommon);
 
-const EP_COMMON_TARGET_V1: Option<Receiver> = Some(host2byte(8, 1));
+const V1_HOST: Option<Receiver> = Some(host2byte(8, 1));
 
 impl<C: Client<V1>> EPCommon<V1, C> {
     pub fn version(&mut self) -> Result<(u8, u8, u16)> {
         let resp = self
             .client
-            .send_cmd_sync(EP_COMMON_TARGET_V1, GetProductVersion::default())?;
+            .send_cmd_sync(V1_HOST, GetProductVersion::default())?;
 
         Ok((resp.major, resp.minor, resp.patch))
     }
 
     pub fn sn(&mut self) -> Result<String> {
-        let resp = self
-            .client
-            .send_cmd_sync(EP_COMMON_TARGET_V1, GetSN::default())?;
+        let resp = self.client.send_cmd_sync(V1_HOST, GetSN::default())?;
 
         Ok(resp.sn)
     }

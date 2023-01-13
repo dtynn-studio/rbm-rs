@@ -19,7 +19,7 @@ pub use proto::{
     DetectType,
 };
 
-const DEFAULT_TARGET_V1: Option<Receiver> = Some(host2byte(17, 7));
+pub const V1_HOST: Option<Receiver> = Some(host2byte(17, 7));
 
 struct DetectInfoChan {
     rx: Arc<Rx<DetectInfo>>,
@@ -90,17 +90,16 @@ impl<C: Client<V1>> Vision<V1, C> {
     fn set_color(&mut self, typ: ColorType, color: Color) -> Result<()> {
         let cmd = SetColor { typ, color };
 
-        self.client.send_cmd_sync(DEFAULT_TARGET_V1, cmd)?;
+        self.client.send_cmd_sync(V1_HOST, cmd)?;
         Ok(())
     }
 
     fn update_detection(&self) -> Result<()> {
-        self.client
-            .send_cmd_sync(DEFAULT_TARGET_V1, self.detect_mask)?;
+        self.client.send_cmd_sync(V1_HOST, self.detect_mask)?;
         Ok(())
     }
 
     pub fn detection_status(&self) -> Result<DetectTypeMask> {
-        self.client.send_cmd_sync(DEFAULT_TARGET_V1, DetectStatus)
+        self.client.send_cmd_sync(V1_HOST, DetectStatus)
     }
 }
