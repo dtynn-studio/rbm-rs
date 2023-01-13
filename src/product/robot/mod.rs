@@ -11,6 +11,7 @@ use crate::{
         dds::DDS,
         gimbal::Gimbal,
         led::EPLed,
+        robotic_arm::RoboticArm,
         servo::Servo,
         vision::Vision,
     },
@@ -20,6 +21,7 @@ use crate::{
 
 // TODO: heartbeat
 pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
+    pub client: Arc<C>,
     pub common: EPCommon<CODEC, C>,
     pub chassis: Chassis<CODEC, C>,
     pub gimbal: Gimbal<CODEC, C>,
@@ -30,10 +32,12 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub led: EPLed<CODEC, C>,
     pub battery: EPBattery<CODEC, C>,
     pub servo: Servo<CODEC, C>,
+    pub robotic_arm: RoboticArm<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
     pub fn new(client: Arc<C>) -> Result<Self> {
+        let common = EPCommon::new(client.clone())?;
         let chassis = Chassis::new(client.clone())?;
         let gimbal = Gimbal::new(client.clone())?;
         let camera = EPCamera::new(client.clone())?;
@@ -43,10 +47,10 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let led = EPLed::new(client.clone())?;
         let battery = EPBattery::new(client.clone())?;
         let servo = Servo::new(client.clone())?;
-
-        let common = EPCommon::new(client)?;
+        let robotic_arm = RoboticArm::new(client.clone())?;
 
         let mut robot = Self {
+            client,
             common,
             chassis,
             gimbal,
@@ -57,6 +61,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             led,
             battery,
             servo,
+            robotic_arm,
         };
 
         robot.common.enable_sdk_mode(true)?;

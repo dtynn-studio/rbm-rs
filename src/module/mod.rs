@@ -15,6 +15,7 @@ pub mod common;
 pub mod dds;
 pub mod gimbal;
 pub mod led;
+pub mod robotic_arm;
 pub mod servo;
 pub mod vision;
 
