@@ -12,7 +12,7 @@ use crate::{
         gimbal::Gimbal,
         led::EPLed,
         robotic_arm::RoboticArm,
-        sensor::distance::Distance,
+        sensor::{adaptor::Adaptor, distance::Distance},
         servo::Servo,
         vision::Vision,
     },
@@ -35,6 +35,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub servo: Servo<CODEC, C>,
     pub robotic_arm: RoboticArm<CODEC, C>,
     pub distance: Distance<CODEC, C>,
+    pub sensor_adaptor: Adaptor<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -51,6 +52,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let servo = Servo::new(client.clone())?;
         let robotic_arm = RoboticArm::new(client.clone())?;
         let distance = Distance::new(client.clone())?;
+        let sensor_adaptor = Adaptor::new(client.clone())?;
 
         let mut robot = Self {
             client,
@@ -66,6 +68,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             servo,
             robotic_arm,
             distance,
+            sensor_adaptor,
         };
 
         robot.common.enable_sdk_mode(true)?;
