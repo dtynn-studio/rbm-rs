@@ -11,6 +11,7 @@ use crate::{
         dds::DDS,
         gimbal::Gimbal,
         led::EPLed,
+        servo::Servo,
         vision::Vision,
     },
     proto::{v1::V1, Codec},
@@ -28,6 +29,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub dds: DDS<CODEC, C>,
     pub led: EPLed<CODEC, C>,
     pub battery: EPBattery<CODEC, C>,
+    pub servo: Servo<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -40,6 +42,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let dds = DDS::new(client.clone())?;
         let led = EPLed::new(client.clone())?;
         let battery = EPBattery::new(client.clone())?;
+        let servo = Servo::new(client.clone())?;
 
         let common = EPCommon::new(client)?;
 
@@ -53,6 +56,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             dds,
             led,
             battery,
+            servo,
         };
 
         robot.common.enable_sdk_mode(true)?;
