@@ -20,6 +20,7 @@ pub mod led;
 pub mod robotic_arm;
 pub mod sensor;
 pub mod servo;
+pub mod uart;
 pub mod vision;
 
 pub(self) mod util;

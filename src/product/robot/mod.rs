@@ -16,6 +16,7 @@ use crate::{
         robotic_arm::RoboticArm,
         sensor::{adaptor::Adaptor, distance::Distance},
         servo::Servo,
+        uart::Uart,
         vision::Vision,
     },
     proto::{v1::V1, Codec},
@@ -40,6 +41,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub sensor_adaptor: Adaptor<CODEC, C>,
     pub gripper: Gripper<CODEC, C>,
     pub armor: Armor<CODEC, C>,
+    pub uart: Uart<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -59,6 +61,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let sensor_adaptor = Adaptor::new(client.clone())?;
         let gripper = Gripper::new(client.clone())?;
         let armor = Armor::new(client.clone())?;
+        let uart = Uart::new(client.clone())?;
 
         let mut robot = Self {
             client,
@@ -77,6 +80,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             sensor_adaptor,
             gripper,
             armor,
+            uart,
         };
 
         robot.common.enable_sdk_mode(true)?;
