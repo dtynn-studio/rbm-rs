@@ -1,38 +1,9 @@
 use std::convert::TryFrom;
 
-use crate::Error;
+use crate::{util::macros::impl_num_enums, Error};
 
 pub mod cmd;
 pub mod sub;
-
-macro_rules! impl_num_enums {
-    ($tname:ident, $($vname:ident = $val:literal,)+) => {
-        impl_num_enums!($tname, u8, $($vname = $val,)+);
-    };
-
-    ($tname:ident, $nty:ty, $($vname:ident = $val:literal,)+) => {
-        #[repr($nty)]
-        #[derive(Debug, Clone, Copy)]
-        pub enum $tname {
-            $(
-                $vname = $val,
-             )+
-        }
-
-        impl std::convert::TryFrom<$nty> for $tname {
-            type Error = $crate::Error;
-
-            fn try_from(val: $nty) -> Result<Self, Self::Error> {
-                Ok(match val {
-                    $(
-                        $val => $tname::$vname,
-                     )+
-                    other => return Err($crate::Error::Other(format!("unexpected value {} for {}", other, stringify!($tname)).into())),
-                })
-            }
-        }
-    };
-}
 
 impl_num_enums!(
     DetectType,

@@ -1,6 +1,7 @@
 pub(crate) mod algo;
 pub(crate) mod chan;
 pub(crate) mod decimal;
+pub(crate) mod macros;
 pub(crate) mod ordered;
 pub(crate) mod unit_convertor;
 
