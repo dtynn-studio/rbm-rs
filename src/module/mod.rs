@@ -14,6 +14,7 @@ pub mod chassis;
 pub mod common;
 pub mod dds;
 pub mod gimbal;
+pub mod gripper;
 pub mod led;
 pub mod robotic_arm;
 pub mod sensor;

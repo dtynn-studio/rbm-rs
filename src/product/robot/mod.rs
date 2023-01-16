@@ -10,6 +10,7 @@ use crate::{
         common::{EPCommon, RobotMode},
         dds::DDS,
         gimbal::Gimbal,
+        gripper::Gripper,
         led::EPLed,
         robotic_arm::RoboticArm,
         sensor::{adaptor::Adaptor, distance::Distance},
@@ -36,6 +37,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub robotic_arm: RoboticArm<CODEC, C>,
     pub distance: Distance<CODEC, C>,
     pub sensor_adaptor: Adaptor<CODEC, C>,
+    pub gripper: Gripper<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -53,6 +55,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let robotic_arm = RoboticArm::new(client.clone())?;
         let distance = Distance::new(client.clone())?;
         let sensor_adaptor = Adaptor::new(client.clone())?;
+        let gripper = Gripper::new(client.clone())?;
 
         let mut robot = Self {
             client,
@@ -69,6 +72,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             robotic_arm,
             distance,
             sensor_adaptor,
+            gripper,
         };
 
         robot.common.enable_sdk_mode(true)?;

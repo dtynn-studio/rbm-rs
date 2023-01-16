@@ -278,6 +278,15 @@ pub const GIMBAL_ATTI_YAW_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     unit: "°",
 };
 
+pub const GRIPPER_POWER_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(1.0),
+    end: Some(100.0),
+    decimal: 0,
+    scale: 6.6,
+    delta: 0.0,
+    unit: "",
+};
+
 // TODO: default value
 pub struct UnitConvertor<V> {
     start: Option<V>,
