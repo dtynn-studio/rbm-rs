@@ -287,6 +287,15 @@ pub const GRIPPER_POWER_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
     unit: "",
 };
 
+pub const ARMOR_SENSITIVE_K_CONVERTOR: UnitConvertor<f32> = UnitConvertor {
+    start: Some(1.0),
+    end: Some(10.0),
+    decimal: 0,
+    scale: 1.0,
+    delta: 0.0,
+    unit: "",
+};
+
 // TODO: default value
 pub struct UnitConvertor<V> {
     start: Option<V>,

@@ -7,6 +7,7 @@ use crate::{
     util::chan::Rx,
 };
 
+pub mod armor;
 pub mod battery;
 pub mod blaster;
 pub mod camera;

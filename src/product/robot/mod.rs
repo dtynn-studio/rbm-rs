@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     client::Client,
     module::{
+        armor::Armor,
         battery::EPBattery,
         blaster::Blaster,
         camera::EPCamera,
@@ -38,6 +39,7 @@ pub struct RobotMasterEP<CODEC: Codec, C: Client<CODEC>> {
     pub distance: Distance<CODEC, C>,
     pub sensor_adaptor: Adaptor<CODEC, C>,
     pub gripper: Gripper<CODEC, C>,
+    pub armor: Armor<CODEC, C>,
 }
 
 impl<C: Client<V1>> RobotMasterEP<V1, C> {
@@ -56,6 +58,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
         let distance = Distance::new(client.clone())?;
         let sensor_adaptor = Adaptor::new(client.clone())?;
         let gripper = Gripper::new(client.clone())?;
+        let armor = Armor::new(client.clone())?;
 
         let mut robot = Self {
             client,
@@ -73,6 +76,7 @@ impl<C: Client<V1>> RobotMasterEP<V1, C> {
             distance,
             sensor_adaptor,
             gripper,
+            armor,
         };
 
         robot.common.enable_sdk_mode(true)?;

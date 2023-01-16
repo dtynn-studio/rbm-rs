@@ -3,11 +3,9 @@ use std::sync::Arc;
 use super::impl_module;
 use crate::{
     client::Client,
+    module::util::SubEventChan,
     proto::v1::{Receiver, V1},
-    util::{
-        chan::{unbounded, Rx, Tx},
-        host2byte,
-    },
+    util::{chan::Rx, host2byte},
     Result,
 };
 
@@ -21,21 +19,7 @@ pub use proto::{
 
 pub const V1_HOST: Option<Receiver> = Some(host2byte(17, 7));
 
-struct DetectInfoChan {
-    rx: Arc<Rx<DetectInfo>>,
-    tx: Option<Tx<DetectInfo>>,
-}
-
-impl Default for DetectInfoChan {
-    fn default() -> Self {
-        let (tx, rx) = unbounded();
-
-        DetectInfoChan {
-            rx: Arc::new(rx),
-            tx: Some(tx),
-        }
-    }
-}
+pub type DetectInfoChan = SubEventChan<DetectInfo>;
 
 impl_module!(Vision, ~detect_mask: DetectTypeMask, ~detect_info_chan: DetectInfoChan);
 

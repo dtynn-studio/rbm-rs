@@ -1,9 +1,9 @@
 macro_rules! impl_num_enums {
-    ($tname:ident, $($vname:ident = $val:literal,)+) => {
+    ($tname:ident, $($vname:ident = $val:expr,)+) => {
         impl_num_enums!($tname, u8, $($vname = $val,)+);
     };
 
-    ($tname:ident, $nty:ty, $($vname:ident = $val:literal,)+) => {
+    ($tname:ident, $nty:ty, $($vname:ident = $val:expr,)+) => {
         #[repr($nty)]
         #[derive(Debug, Clone, Copy)]
         pub enum $tname {
