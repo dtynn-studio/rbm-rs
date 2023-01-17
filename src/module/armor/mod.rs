@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{impl_module, util::SubEventChan};
+use super::{impl_module, SubEventChan};
 use crate::{
     client::Client,
     proto::v1::{Receiver, V1},

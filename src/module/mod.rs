@@ -24,7 +24,7 @@ pub mod uart;
 pub mod vision;
 
 pub(self) mod util;
-use util::{impl_module, impl_v1_subscribe_meth_simple};
+use util::{impl_module, impl_v1_subscribe_meth_simple, SubEventChan};
 
 pub type V1ActionReturn<T> = (T, Rx<(ActionUpdateHead, <T as ProtoAction<V1>>::Update)>);
 pub type V1SubscribeReturn<T> = (
