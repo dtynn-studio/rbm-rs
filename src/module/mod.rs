@@ -7,6 +7,7 @@ use crate::{
     util::chan::Rx,
 };
 
+pub mod ai;
 pub mod armor;
 pub mod battery;
 pub mod blaster;
@@ -25,6 +26,8 @@ pub mod vision;
 
 pub(self) mod util;
 use util::{impl_module, impl_v1_subscribe_meth_simple, SubEventChan};
+
+pub type SubEventChanWithSubscription<T, C> = (SubEventChan<T>, Option<Box<dyn Subscription<C>>>);
 
 pub type V1ActionReturn<T> = (T, Rx<(ActionUpdateHead, <T as ProtoAction<V1>>::Update)>);
 pub type V1SubscribeReturn<T> = (

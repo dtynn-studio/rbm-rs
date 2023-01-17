@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{impl_module, SubEventChan};
+use super::{impl_module, SubEventChanWithSubscription};
 use crate::{
     client::Client,
     proto::v1::{Receiver, V1},
@@ -18,9 +18,7 @@ pub use proto::{
 
 pub const V1_HOST: Option<Receiver> = Some(host2byte(17, 7));
 
-pub type DetectInfoChan = SubEventChan<DetectInfo>;
-
-impl_module!(Vision, ~detect_mask: DetectTypeMask, ~detect_info_chan: DetectInfoChan);
+impl_module!(Vision, ~detect_mask: DetectTypeMask, ~detect_info_chan: SubEventChanWithSubscription<DetectInfo, CODEC>);
 
 impl<C: Client<V1>> Vision<V1, C> {
     pub fn reset(&mut self) -> Result<()> {
@@ -59,12 +57,13 @@ impl<C: Client<V1>> Vision<V1, C> {
     }
 
     pub fn detect_info_rx(&self) -> &Arc<Rx<DetectInfo>> {
-        &self.detect_info_chan.rx
+        &self.detect_info_chan.0.rx
     }
 
     fn sub_detect_info_event(&mut self) -> Result<()> {
-        if let Some(tx) = self.detect_info_chan.tx.take() {
-            self.client.subscribe_event(tx)?;
+        if let Some(tx) = self.detect_info_chan.0.tx.take() {
+            let sub = self.client.subscribe_event(tx)?;
+            self.detect_info_chan.1.replace(sub);
         }
 
         Ok(())

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{impl_module, SubEventChan};
+use super::{impl_module, SubEventChanWithSubscription};
 use crate::{
     client::Client,
     proto::v1::{Receiver, V1},
@@ -17,7 +17,7 @@ pub use proto::{
     ArmorCompMask,
 };
 
-impl_module!(Armor, ~armor_hit_chan: SubEventChan<ArmorHit>, ~ir_hit_chan: SubEventChan<IRHit>);
+impl_module!(Armor, ~armor_hit_chan: SubEventChanWithSubscription<ArmorHit, CODEC>, ~ir_hit_chan: SubEventChanWithSubscription<IRHit, CODEC>);
 
 impl<C: Client<V1>> Armor<V1, C> {
     pub fn set_hit_sensitive(&mut self, comp_mask: ArmorCompMask, sensitive: f32) -> Result<()> {
@@ -42,26 +42,28 @@ impl<C: Client<V1>> Armor<V1, C> {
     }
 
     pub fn sub_armor_hit_event(&mut self) -> Result<()> {
-        if let Some(tx) = self.armor_hit_chan.tx.take() {
-            self.client.subscribe_event(tx)?;
+        if let Some(tx) = self.armor_hit_chan.0.tx.take() {
+            let sub = self.client.subscribe_event(tx)?;
+            self.armor_hit_chan.1.replace(sub);
         }
 
         Ok(())
     }
 
     pub fn armor_hit_rx(&self) -> &Arc<Rx<ArmorHit>> {
-        &self.armor_hit_chan.rx
+        &self.armor_hit_chan.0.rx
     }
 
     pub fn sub_ir_hit_event(&mut self) -> Result<()> {
-        if let Some(tx) = self.ir_hit_chan.tx.take() {
-            self.client.subscribe_event(tx)?;
+        if let Some(tx) = self.ir_hit_chan.0.tx.take() {
+            let sub = self.client.subscribe_event(tx)?;
+            self.ir_hit_chan.1.replace(sub);
         }
 
         Ok(())
     }
 
     pub fn ir_hit_rx(&self) -> &Arc<Rx<IRHit>> {
-        &self.ir_hit_chan.rx
+        &self.ir_hit_chan.0.rx
     }
 }
