@@ -73,7 +73,7 @@ impl ActionDispatcher {
 
         let update_ident = <A::Update as ProtoPush<V1>>::IDENT;
 
-        let (mut tx, rx) = unbounded();
+        let (tx, rx) = unbounded();
         let callback: ActionCallback = Box::new(move |input| {
             match input {
                 ActionCallbackInput::Update(head, raw, used) => {

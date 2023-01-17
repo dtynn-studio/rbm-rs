@@ -41,17 +41,17 @@ pub struct Tx<T> {
 }
 
 impl<T> Tx<T> {
-    pub fn send(&mut self, ele: T) -> Result<()> {
+    pub fn send(&self, ele: T) -> Result<()> {
         self.tx
             .send(ele)
             .map_err(|_e| Error::Other("chan broken".into()))
     }
 
-    pub fn inner(&mut self) -> &Sender<T> {
+    pub fn inner(&self) -> &Sender<T> {
         &self.tx
     }
 
-    pub fn is_closed(&mut self) -> bool {
+    pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Relaxed)
     }
 }

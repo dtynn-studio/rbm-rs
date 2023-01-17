@@ -1,16 +1,11 @@
-use std::sync::Arc;
-
-use super::{impl_module, SubEventChan};
+use super::impl_module;
 use crate::{
     client::{Client, RawHandler},
     proto::{
         v1::{Receiver, V1},
-        Codec, Deserialize, ProtoPush, Raw,
+        Deserialize, ProtoPush, Raw,
     },
-    util::{
-        chan::{Rx, Tx},
-        host2byte,
-    },
+    util::{chan::Tx, host2byte},
     Result,
 };
 
@@ -24,16 +19,7 @@ pub use proto::{
     sub::SerialData,
 };
 
-impl_module!(Uart, ~uart_data_chan: SubEventChan<SerialData>);
-
-impl<CODEC: Codec, C: Client<CODEC>> Drop for Uart<CODEC, C> {
-    fn drop(&mut self) {
-        if self.uart_data_chan.tx.is_none() {
-            // TODO: logging
-            if let Err(_e) = self.client.unregister_raw_handler(HANDLER_NAME) {};
-        }
-    }
-}
+impl_module!(Uart);
 
 impl<C: Client<V1>> Uart<V1, C> {
     pub fn set_param(
@@ -68,17 +54,10 @@ impl<C: Client<V1>> Uart<V1, C> {
         Ok(())
     }
 
-    pub fn sub_serial_data(&mut self) -> Result<()> {
-        if let Some(tx) = self.uart_data_chan.tx.take() {
-            let raw_hdl = UartHandler(tx);
-            self.client.register_raw_handler(HANDLER_NAME, raw_hdl)?;
-        }
-
+    pub fn sub_serial_data(&mut self, tx: Tx<SerialData>) -> Result<()> {
+        let raw_hdl = UartHandler(tx);
+        self.client.register_raw_handler(HANDLER_NAME, raw_hdl)?;
         Ok(())
-    }
-
-    pub fn serial_data_rx(&self) -> &Arc<Rx<SerialData>> {
-        &self.uart_data_chan.rx
     }
 }
 
@@ -94,9 +73,13 @@ impl RawHandler<V1> for UartHandler {
             return Ok(false);
         }
 
+        if self.0.is_closed() {
+            return Ok(false);
+        }
+
         let data = <SerialData as Deserialize<V1>>::de(&raw.raw_data)?;
         // TODO: some tricks here to avoid clone?
-        let mut tx = self.0.clone();
+        let tx = self.0.clone();
         tx.send(data)?;
         Ok(true)
     }

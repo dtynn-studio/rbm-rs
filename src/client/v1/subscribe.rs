@@ -121,7 +121,7 @@ impl Subscriber {
 
         let sub_msg = SubMsg::single(self.conn.host(), msg_id, cfg.unwrap_or_default(), sid);
 
-        let (mut tx, rx) = unbounded();
+        let (tx, rx) = unbounded();
         let hdl: SubscribeHandler = Box::new(move |input| {
             match input {
                 SubscribeHandlerInput::Data(data) => {
@@ -169,7 +169,7 @@ impl Subscriber {
 
     pub fn subscribe_event<P: ProtoPush<V1>>(
         &self,
-        mut tx: Tx<P>,
+        tx: Tx<P>,
     ) -> Result<Box<dyn SubscriptionTrait<V1>>>
     where
         P: ProtoPush<V1> + Send + 'static,

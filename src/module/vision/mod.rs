@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
-use super::{impl_module, SubEventChanWithSubscription};
+use super::impl_module;
 use crate::{
-    client::Client,
+    client::{Client, Subscription},
     proto::v1::{Receiver, V1},
-    util::{chan::Rx, host2byte},
+    util::{chan::Tx, host2byte},
     Result,
 };
 
@@ -18,7 +16,7 @@ pub use proto::{
 
 pub const V1_HOST: Option<Receiver> = Some(host2byte(17, 7));
 
-impl_module!(Vision, ~detect_mask: DetectTypeMask, ~detect_info_chan: SubEventChanWithSubscription<DetectInfo, CODEC>);
+impl_module!(Vision, ~detect_mask: DetectTypeMask);
 
 impl<C: Client<V1>> Vision<V1, C> {
     pub fn reset(&mut self) -> Result<()> {
@@ -27,8 +25,6 @@ impl<C: Client<V1>> Vision<V1, C> {
     }
 
     pub fn enable_detection(&mut self, typ: DetectType, color: Option<Color>) -> Result<()> {
-        self.sub_detect_info_event()?;
-
         // TODO: refresh detect status?
         self.detect_mask.add(typ);
         self.update_detection()?;
@@ -56,17 +52,11 @@ impl<C: Client<V1>> Vision<V1, C> {
         Ok(())
     }
 
-    pub fn detect_info_rx(&self) -> &Arc<Rx<DetectInfo>> {
-        &self.detect_info_chan.0.rx
-    }
-
-    fn sub_detect_info_event(&mut self) -> Result<()> {
-        if let Some(tx) = self.detect_info_chan.0.tx.take() {
-            let sub = self.client.subscribe_event(tx)?;
-            self.detect_info_chan.1.replace(sub);
-        }
-
-        Ok(())
+    pub fn sub_detect_info_event(
+        &mut self,
+        tx: Tx<DetectInfo>,
+    ) -> Result<Box<dyn Subscription<V1>>> {
+        self.client.subscribe_event(tx)
     }
 
     fn set_color(&mut self, typ: ColorType, color: Color) -> Result<()> {

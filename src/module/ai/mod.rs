@@ -1,17 +1,18 @@
-use super::{impl_module, SubEventChanWithSubscription};
+use super::impl_module;
 use crate::{
-    client::Client,
+    client::{Client, Subscription},
     proto::v1::{Receiver, V1},
-    util::host2byte,
+    util::{chan::Tx, host2byte},
     Result,
 };
 
 pub mod proto;
-use proto::{cmd::AIInit, sub::AIEvent};
+use proto::cmd::AIInit;
+pub use proto::sub::AIEvent;
 
 pub const V1_HOST: Option<Receiver> = Some(host2byte(15, 1));
 
-impl_module!(EPAI, ~ai_event_chan: SubEventChanWithSubscription<AIEvent, CODEC>);
+impl_module!(EPAI);
 
 impl<C: Client<V1>> EPAI<V1, C> {
     pub fn init_module(&mut self) -> Result<()> {
@@ -20,12 +21,7 @@ impl<C: Client<V1>> EPAI<V1, C> {
         Ok(())
     }
 
-    pub fn sub_ai_event(&mut self) -> Result<()> {
-        if let Some(tx) = self.ai_event_chan.0.tx.take() {
-            let sub = self.client.subscribe_event(tx)?;
-            self.ai_event_chan.1.replace(sub);
-        }
-
-        Ok(())
+    pub fn sub_ai_event(&mut self, tx: Tx<AIEvent>) -> Result<Box<dyn Subscription<V1>>> {
+        self.client.subscribe_event(tx)
     }
 }

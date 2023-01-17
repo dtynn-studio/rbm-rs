@@ -1,23 +1,3 @@
-use std::sync::Arc;
-
-use crate::util::chan::{unbounded, Rx, Tx};
-
-pub struct SubEventChan<T> {
-    pub rx: Arc<Rx<T>>,
-    pub tx: Option<Tx<T>>,
-}
-
-impl<T> Default for SubEventChan<T> {
-    fn default() -> Self {
-        let (tx, rx) = unbounded();
-
-        SubEventChan {
-            rx: Arc::new(rx),
-            tx: Some(tx),
-        }
-    }
-}
-
 macro_rules! impl_module {
     ($name:ident $(,$fname:ident : $ftype:ty)* $(,~ $dfname:ident : $dftype:ty)*) => {
         pub struct $name<CODEC: $crate::proto::Codec, C: $crate::client::Client<CODEC>> {
