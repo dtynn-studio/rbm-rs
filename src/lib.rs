@@ -1,14 +1,3 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#![deny(missing_docs)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+//! This is a rust version of dji's original [RoboMaster-SDK](https://github.com/dji-sdk/robomaster-sdk).
